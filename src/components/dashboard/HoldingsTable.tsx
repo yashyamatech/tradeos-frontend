@@ -1,59 +1,49 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { useHoldingsStore } from '@/store/holdingsStore';
 
-interface Holding {
-  tradingSymbol?: string;
-  isin?: string;
-  quantity?: number;
-  averagePrice?: number;
-  ltp?: number;
-  pnl?: number;
-  pnlPercent?: number;
-  [key: string]: unknown;
+function fmtPrice(n: number | string) {
+  return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function HoldingsTable() {
-  const [holdings, setHoldings] = useState<Holding[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const api = process.env.NEXT_PUBLIC_API_URL;
+  const { holdings, loading, error, fetch, lastUpdated } = useHoldingsStore();
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(`${api}/api/market/holdings`);
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        const raw = data?.holdings?.data ?? data?.holdings ?? [];
-        setHoldings(Array.isArray(raw) ? raw : []);
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'Failed to load holdings');
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+  useEffect(() => { fetch(); }, []);
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Holdings</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Holdings</CardTitle>
+          {lastUpdated && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Updated {lastUpdated.toLocaleTimeString('en-IN')}
+            </p>
+          )}
+        </div>
+        <Button variant="outline" size="sm" onClick={fetch} disabled={loading}>
+          <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Loading holdings...
+      <CardContent className="p-0">
+        {loading && holdings.length === 0 ? (
+          <div className="flex items-center gap-2 text-muted-foreground py-12 justify-center">
+            <Loader2 className="h-5 w-5 animate-spin" /> Loading holdings...
           </div>
         ) : error ? (
-          <p className="text-destructive text-sm py-4">{error}</p>
+          <div className="py-8 text-center">
+            <p className="text-destructive text-sm">{error}</p>
+            <Button variant="outline" size="sm" className="mt-3" onClick={fetch}>Retry</Button>
+          </div>
         ) : holdings.length === 0 ? (
-          <p className="text-muted-foreground text-sm py-4 text-center">No holdings found</p>
+          <p className="text-muted-foreground text-sm py-12 text-center">No holdings found</p>
         ) : (
           <Table>
             <TableHeader>
@@ -62,34 +52,39 @@ export function HoldingsTable() {
                 <TableHead className="text-right">Qty</TableHead>
                 <TableHead className="text-right">Avg Price</TableHead>
                 <TableHead className="text-right">LTP</TableHead>
+                <TableHead className="text-right">Invested</TableHead>
+                <TableHead className="text-right">Mkt Value</TableHead>
                 <TableHead className="text-right">P&amp;L</TableHead>
-                <TableHead className="text-right">P&amp;L %</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {holdings.map((h, i) => {
-                const pnl = h.pnl ?? 0;
-                const pnlPct = h.pnlPercent ?? 0;
-                const isProfit = Number(pnl) >= 0;
+                const pnl = Number(h.mktValue) - Number(h.holdingCost);
+                const pnlPct = Number(h.holdingCost) ? (pnl / Number(h.holdingCost)) * 100 : 0;
+                const isProfit = pnl >= 0;
                 return (
-                  <TableRow key={h.isin ?? i}>
-                    <TableCell className="font-medium font-mono">
-                      {h.tradingSymbol ?? h.isin ?? '-'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{h.quantity ?? '-'}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      {h.averagePrice ? `₹${Number(h.averagePrice).toFixed(2)}` : '-'}
+                  <TableRow key={h.scripId ?? i}>
+                    <TableCell>
+                      <div className="font-medium font-mono">{h.displaySymbol || h.symbol || '-'}</div>
+                      <div className="text-xs text-muted-foreground">{h.exchangeSegment}</div>
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {h.ltp ? `₹${Number(h.ltp).toFixed(2)}` : '-'}
+                      <div>{h.quantity}</div>
+                      {h.sellableQuantity !== h.quantity && (
+                        <div className="text-xs text-muted-foreground">Sell: {h.sellableQuantity}</div>
+                      )}
                     </TableCell>
+                    <TableCell className="text-right font-mono">{fmtPrice(h.averagePrice)}</TableCell>
+                    <TableCell className="text-right font-mono">{fmtPrice(h.closingPrice)}</TableCell>
+                    <TableCell className="text-right font-mono">{fmtPrice(h.holdingCost)}</TableCell>
+                    <TableCell className="text-right font-mono">{fmtPrice(h.mktValue)}</TableCell>
                     <TableCell className="text-right">
-                      <Badge variant={isProfit ? 'profit' : 'loss'}>
-                        {isProfit ? '+' : ''}₹{Number(pnl).toFixed(0)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className={`text-right font-mono text-xs ${isProfit ? 'text-profit' : 'text-loss'}`}>
-                      {isProfit ? '+' : ''}{Number(pnlPct).toFixed(2)}%
+                      <div className={`font-mono font-medium ${isProfit ? 'text-profit' : 'text-loss'}`}>
+                        {isProfit ? '+' : ''}{fmtPrice(pnl)}
+                      </div>
+                      <div className={`text-xs ${isProfit ? 'text-profit' : 'text-loss'}`}>
+                        {isProfit ? '+' : ''}{pnlPct.toFixed(2)}%
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

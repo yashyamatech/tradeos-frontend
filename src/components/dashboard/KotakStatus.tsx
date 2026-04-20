@@ -1,44 +1,33 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Wifi, WifiOff } from 'lucide-react';
+import { useMarketStore } from '@/store/marketStore';
 
 export function KotakStatus() {
-  const [status, setStatus] = useState<{ authenticated: boolean; auth_date?: string } | null>(null);
-  const [connecting, setConnecting] = useState(false);
-  const api = process.env.NEXT_PUBLIC_API_URL;
-
-  async function fetchStatus() {
-    try {
-      const res = await fetch(`${api}/api/auth/status`);
-      setStatus(await res.json());
-    } catch { setStatus(null); }
-  }
-
-  async function connect() {
-    setConnecting(true);
-    await fetch(`${api}/api/auth/login`, { method: 'POST' });
-    await fetchStatus();
-    setConnecting(false);
-  }
+  const { authenticated, authDate, connecting, error, fetchStatus, connect } = useMarketStore();
 
   useEffect(() => { fetchStatus(); }, []);
 
-  if (!status) return null;
-
   return (
     <div className="flex items-center gap-3">
-      {status.authenticated ? (
-        <Badge variant="profit">Kotak Connected</Badge>
+      {error && <span className="text-xs text-destructive">{error}</span>}
+      {authenticated ? (
+        <div className="flex items-center gap-2">
+          <Wifi className="h-4 w-4 text-profit" />
+          <Badge variant="profit">Kotak Live</Badge>
+          {authDate && <span className="text-xs text-muted-foreground hidden sm:block">{authDate}</span>}
+        </div>
       ) : (
-        <>
-          <Badge variant="destructive">Kotak Disconnected</Badge>
+        <div className="flex items-center gap-2">
+          <WifiOff className="h-4 w-4 text-loss" />
+          <Badge variant="destructive">Disconnected</Badge>
           <Button size="sm" onClick={connect} disabled={connecting}>
             {connecting && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
             Connect
           </Button>
-        </>
+        </div>
       )}
     </div>
   );
