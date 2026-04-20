@@ -1,11 +1,18 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useNseStore, Sector } from '@/store/nseStore';
+import { useNseStore, Sector, HeatmapType } from '@/store/nseStore';
 import { Button } from '@/components/ui/button';
 import { Drawer } from '@/components/ui/drawer';
 import { SectorStocks } from '@/components/heatmap/SectorStocks';
 import { RefreshCw, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const TABS: { key: HeatmapType; label: string }[] = [
+  { key: 'sectoral',  label: 'Sectoral Indices' },
+  { key: 'broad',     label: 'Broad Market' },
+  { key: 'thematic',  label: 'Thematic' },
+  { key: 'strategy',  label: 'Strategy' },
+];
 
 function heatColor(pct: number) {
   if (pct >= 2)    return 'bg-emerald-600 border-emerald-500';
@@ -22,7 +29,6 @@ function SectorCard({ s, onClick }: { s: Sector; onClick: () => void }) {
   const pct = Number(s.pctChange);
   const isUp = pct >= 0;
   const total = (s.advances || 0) + (s.declines || 0) + (s.unchanged || 0);
-
   return (
     <div
       onClick={onClick}
@@ -33,45 +39,41 @@ function SectorCard({ s, onClick }: { s: Sector; onClick: () => void }) {
       )}
     >
       <div>
-        <p className="text-xs font-medium text-white/70 uppercase tracking-wide leading-tight">
-          {s.name.replace('NIFTY ', '')}
+        <p className="text-xs font-medium text-white/70 uppercase tracking-wide leading-tight line-clamp-2">
+          {s.name?.replace('NIFTY ', '')}
         </p>
         <p className="text-xl font-bold font-mono text-white mt-1">
           {Number(s.last).toLocaleString('en-IN')}
         </p>
       </div>
       <div className="mt-2">
-        <div className={cn('flex items-center gap-1 text-lg font-bold font-mono', isUp ? 'text-emerald-300' : 'text-red-300')}>
+        <div className={cn('flex items-center gap-1 text-base font-bold font-mono', isUp ? 'text-emerald-300' : 'text-red-300')}>
           {isUp ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
           {isUp ? '+' : ''}{pct.toFixed(2)}%
         </div>
-        <p className="text-xs text-white/50 mt-0.5">
-          {isUp ? '+' : ''}{Number(s.change).toFixed(2)} pts
-        </p>
+        <p className="text-xs text-white/50">{isUp ? '+' : ''}{Number(s.change).toFixed(2)} pts</p>
         {total > 0 && (
-          <div className="flex gap-2 mt-2 text-[11px]">
+          <div className="flex gap-2 mt-1.5 text-[11px]">
             <span className="text-emerald-300">▲ {s.advances}</span>
             <span className="text-red-300">▼ {s.declines}</span>
             {s.unchanged > 0 && <span className="text-white/40">– {s.unchanged}</span>}
           </div>
         )}
       </div>
-      <div className="absolute top-2 right-2 text-white/20 text-[10px] uppercase">tap for stocks</div>
     </div>
   );
 }
 
 function Legend() {
-  const steps = [
-    { label: '> +2%', cls: 'bg-emerald-600' },
-    { label: '+1%',   cls: 'bg-emerald-600/70' },
-    { label: '0%',    cls: 'bg-emerald-900/30' },
-    { label: '-1%',   cls: 'bg-red-700/40' },
-    { label: '< -2%', cls: 'bg-red-600' },
-  ];
   return (
     <div className="flex items-center gap-3 flex-wrap">
-      {steps.map((s) => (
+      {[
+        { label: '> +2%', cls: 'bg-emerald-600' },
+        { label: '+1%',   cls: 'bg-emerald-600/70' },
+        { label: '0%',    cls: 'bg-emerald-900/30' },
+        { label: '-1%',   cls: 'bg-red-700/40' },
+        { label: '< -2%', cls: 'bg-red-600' },
+      ].map((s) => (
         <div key={s.label} className="flex items-center gap-1">
           <div className={cn('w-3 h-3 rounded-sm', s.cls)} />
           <span className="text-[11px] text-muted-foreground">{s.label}</span>
@@ -82,12 +84,12 @@ function Legend() {
 }
 
 export function SectorHeatmap() {
-  const { sectors, loading, error, lastUpdated, fetch } = useNseStore();
+  const { sectors, loading, error, lastUpdated, activeType, fetch, setType } = useNseStore();
   const [selected, setSelected] = useState<Sector | null>(null);
 
   useEffect(() => {
     fetch();
-    const id = setInterval(fetch, 60_000);
+    const id = setInterval(() => fetch(), 60_000);
     return () => clearInterval(id);
   }, []);
 
@@ -96,28 +98,48 @@ export function SectorHeatmap() {
   return (
     <>
       <div className="space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
+        {/* Header */}
+        <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold">NSE Sector Heatmap</h1>
+            <h1 className="text-2xl font-bold">NSE Heatmap</h1>
             <p className="text-sm text-muted-foreground">
               {lastUpdated
                 ? `Updated ${lastUpdated.toLocaleTimeString('en-IN')} • auto-refreshes every 60s`
-                : 'Source: NSE India • auto-refreshes every 60s'}
+                : 'Source: nseindia.com • auto-refreshes every 60s'}
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <Legend />
-            <Button variant="outline" size="sm" onClick={fetch} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={() => fetch()} disabled={loading}>
               <RefreshCw className={cn('h-3.5 w-3.5 mr-1', loading && 'animate-spin')} />
               Refresh
             </Button>
           </div>
         </div>
 
+        {/* Type tabs */}
+        <div className="flex gap-1 border-b border-border">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setType(tab.key)}
+              className={cn(
+                'px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px',
+                activeType === tab.key
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Grid */}
         {error ? (
           <div className="py-16 text-center">
             <p className="text-destructive text-sm mb-3">{error}</p>
-            <Button variant="outline" size="sm" onClick={fetch}>Retry</Button>
+            <Button variant="outline" size="sm" onClick={() => fetch()}>Retry</Button>
           </div>
         ) : loading && sectors.length === 0 ? (
           <div className="flex items-center gap-2 justify-center py-24 text-muted-foreground">
@@ -136,7 +158,11 @@ export function SectorHeatmap() {
         open={!!selected}
         onClose={() => setSelected(null)}
         title={selected?.name ?? ''}
-        subtitle={selected ? `LTP ${Number(selected.last).toLocaleString('en-IN')} • ${Number(selected.pctChange) >= 0 ? '+' : ''}${Number(selected.pctChange).toFixed(2)}% • ▲${selected.advances} ▼${selected.declines}` : ''}
+        subtitle={
+          selected
+            ? `${Number(selected.last).toLocaleString('en-IN')} • ${Number(selected.pctChange) >= 0 ? '+' : ''}${Number(selected.pctChange).toFixed(2)}% • ▲${selected.advances} ▼${selected.declines}`
+            : ''
+        }
       >
         {selected && <SectorStocks indexName={selected.name} />}
       </Drawer>
