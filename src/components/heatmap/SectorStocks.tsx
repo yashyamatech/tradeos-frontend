@@ -2,55 +2,57 @@
 import { useEffect, useState } from 'react';
 import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { HeatmapType } from '@/store/nseStore';
 
 interface Stock {
   symbol: string;
-  open: number;
+  lastPrice: number;
   high: number;
   low: number;
-  previousClose: number;
-  ltp: number;
-  volume: number;
   change: number;
   pctChange: number;
-  yearHigh?: number;
-  yearLow?: number;
+  volume: number;
+  vwap: number;
+  lastUpdated: string;
+  series: string;
 }
 
+type SortKey = keyof Stock;
+
 function fmtPrice(n: number | null | undefined) {
-  if (n == null) return '-';
+  if (n == null || n === 0) return '-';
   return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function fmtVol(v: number | null | undefined) {
   if (v == null) return '-';
-  if (v >= 10_000_000) return `${(v / 10_000_000).toFixed(1)}Cr`;
-  if (v >= 100_000) return `${(v / 100_000).toFixed(1)}L`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
-  return String(v);
+  const n = Number(v);
+  if (n >= 10_000_000) return `${(n / 10_000_000).toFixed(1)}Cr`;
+  if (n >= 100_000)    return `${(n / 100_000).toFixed(1)}L`;
+  if (n >= 1_000)      return `${(n / 1_000).toFixed(0)}K`;
+  return String(n);
 }
 
-export function SectorStocks({ indexName }: { indexName: string }) {
-  const [stocks, setStocks] = useState<Stock[]>([]);
+export function SectorStocks({ indexName, heatmapType = 'sectoral' }: { indexName: string; heatmapType?: HeatmapType }) {
+  const [stocks, setStocks]   = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [sort, setSort] = useState<{ key: keyof Stock; dir: 'asc' | 'desc' }>({ key: 'pctChange', dir: 'desc' });
+  const [error, setError]     = useState('');
+  const [sort, setSort]       = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'pctChange', dir: 'desc' });
 
   useEffect(() => {
     if (!indexName) return;
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     const api = process.env.NEXT_PUBLIC_API_URL ?? '';
-    fetch(`${api}/api/nse/sector/${encodeURIComponent(indexName)}`)
+    fetch(`${api}/api/nse/sector/${encodeURIComponent(indexName)}?type=${heatmapType}`)
       .then((r) => r.ok ? r.json() : Promise.reject(r.status))
       .then((d) => setStocks(d.stocks ?? []))
       .catch(() => setError('Failed to load stocks'))
       .finally(() => setLoading(false));
-  }, [indexName]);
+  }, [indexName, heatmapType]);
 
-  function toggleSort(key: keyof Stock) {
+  function toggleSort(key: SortKey) {
     setSort((s) => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'desc' });
   }
 
@@ -60,9 +62,9 @@ export function SectorStocks({ indexName }: { indexName: string }) {
     return sort.dir === 'asc' ? va - vb : vb - va;
   });
 
-  const SortHead = ({ col, label, className }: { col: keyof Stock; label: string; className?: string }) => (
+  const SH = ({ col, label, className }: { col: SortKey; label: string; className?: string }) => (
     <TableHead
-      className={cn('cursor-pointer select-none hover:text-foreground', className)}
+      className={cn('cursor-pointer select-none hover:text-foreground whitespace-nowrap', className)}
       onClick={() => toggleSort(col)}
     >
       {label}{sort.key === col ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
@@ -71,28 +73,33 @@ export function SectorStocks({ indexName }: { indexName: string }) {
 
   if (loading) return (
     <div className="flex items-center gap-2 justify-center py-20 text-muted-foreground">
-      <Loader2 className="h-5 w-5 animate-spin" /> Loading stocks...
+      <Loader2 className="h-5 w-5 animate-spin" /> Loading...
     </div>
   );
-
-  if (error) return <p className="text-destructive text-sm p-6">{error}</p>;
-
+  if (error) return (
+    <div className="p-6 text-center">
+      <p className="text-destructive text-sm">{error}</p>
+      <Button variant="outline" size="sm" className="mt-3" onClick={() => setError('')}>Retry</Button>
+    </div>
+  );
   if (!stocks.length) return <p className="text-muted-foreground text-sm p-6">No data</p>;
 
   return (
     <div>
-      <p className="text-xs text-muted-foreground px-5 py-2">{stocks.length} stocks • click column to sort</p>
+      <p className="text-xs text-muted-foreground px-5 py-2 border-b border-border">
+        {stocks.length} stocks • click column header to sort
+      </p>
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="pl-5">Symbol</TableHead>
-            <SortHead col="ltp" label="LTP" className="text-right" />
-            <SortHead col="pctChange" label="Chg %" className="text-right" />
-            <SortHead col="open" label="Open" className="text-right" />
-            <SortHead col="high" label="High" className="text-right" />
-            <SortHead col="low" label="Low" className="text-right" />
-            <SortHead col="previousClose" label="Prev Close" className="text-right" />
-            <SortHead col="volume" label="Volume" className="text-right pr-5" />
+            <SH col="lastPrice" label="LTP"       className="text-right" />
+            <SH col="pctChange" label="Chg %"     className="text-right" />
+            <SH col="change"    label="Chg"       className="text-right" />
+            <SH col="high"      label="High"      className="text-right" />
+            <SH col="low"       label="Low"       className="text-right" />
+            <SH col="vwap"      label="VWAP"      className="text-right" />
+            <SH col="volume"    label="Volume"    className="text-right pr-5" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -100,17 +107,24 @@ export function SectorStocks({ indexName }: { indexName: string }) {
             const up = Number(s.pctChange) >= 0;
             return (
               <TableRow key={s.symbol}>
-                <TableCell className="font-mono font-medium pl-5">{s.symbol}</TableCell>
-                <TableCell className="text-right font-mono">{fmtPrice(s.ltp)}</TableCell>
+                <TableCell className="pl-5">
+                  <div className="font-mono font-semibold">{s.symbol}</div>
+                  {s.series && s.series !== 'EQ' && (
+                    <div className="text-[10px] text-muted-foreground">{s.series}</div>
+                  )}
+                </TableCell>
+                <TableCell className="text-right font-mono font-medium">{fmtPrice(s.lastPrice)}</TableCell>
                 <TableCell className="text-right">
-                  <span className={cn('font-mono text-sm font-medium', up ? 'text-profit' : 'text-loss')}>
+                  <span className={cn('font-mono font-semibold', up ? 'text-profit' : 'text-loss')}>
                     {up ? '+' : ''}{Number(s.pctChange).toFixed(2)}%
                   </span>
                 </TableCell>
-                <TableCell className="text-right font-mono text-muted-foreground">{fmtPrice(s.open)}</TableCell>
+                <TableCell className={cn('text-right font-mono text-sm', up ? 'text-profit' : 'text-loss')}>
+                  {up ? '+' : ''}{Number(s.change).toFixed(2)}
+                </TableCell>
                 <TableCell className="text-right font-mono text-emerald-400">{fmtPrice(s.high)}</TableCell>
                 <TableCell className="text-right font-mono text-red-400">{fmtPrice(s.low)}</TableCell>
-                <TableCell className="text-right font-mono text-muted-foreground">{fmtPrice(s.previousClose)}</TableCell>
+                <TableCell className="text-right font-mono text-muted-foreground">{fmtPrice(s.vwap)}</TableCell>
                 <TableCell className="text-right font-mono pr-5">{fmtVol(s.volume)}</TableCell>
               </TableRow>
             );

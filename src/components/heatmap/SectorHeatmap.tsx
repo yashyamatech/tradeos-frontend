@@ -26,7 +26,7 @@ function heatColor(pct: number) {
 }
 
 function SectorCard({ s, onClick }: { s: Sector; onClick: () => void }) {
-  const pct = Number(s.pctChange);
+  const pct  = Number(s.pctChange);
   const isUp = pct >= 0;
   const total = (s.advances || 0) + (s.declines || 0) + (s.unchanged || 0);
   return (
@@ -70,7 +70,7 @@ function Legend() {
       {[
         { label: '> +2%', cls: 'bg-emerald-600' },
         { label: '+1%',   cls: 'bg-emerald-600/70' },
-        { label: '0%',    cls: 'bg-emerald-900/30' },
+        { label: '~0%',   cls: 'bg-emerald-900/30' },
         { label: '-1%',   cls: 'bg-red-700/40' },
         { label: '< -2%', cls: 'bg-red-600' },
       ].map((s) => (
@@ -98,14 +98,13 @@ export function SectorHeatmap() {
   return (
     <>
       <div className="space-y-4">
-        {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold">NSE Heatmap</h1>
             <p className="text-sm text-muted-foreground">
               {lastUpdated
                 ? `Updated ${lastUpdated.toLocaleTimeString('en-IN')} • auto-refreshes every 60s`
-                : 'Source: nseindia.com • auto-refreshes every 60s'}
+                : 'Source: nseindia.com • click a sector to see its stocks'}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -117,7 +116,7 @@ export function SectorHeatmap() {
           </div>
         </div>
 
-        {/* Type tabs */}
+        {/* Tabs */}
         <div className="flex gap-1 border-b border-border">
           {TABS.map((tab) => (
             <button
@@ -135,7 +134,6 @@ export function SectorHeatmap() {
           ))}
         </div>
 
-        {/* Grid */}
         {error ? (
           <div className="py-16 text-center">
             <p className="text-destructive text-sm mb-3">{error}</p>
@@ -160,11 +158,13 @@ export function SectorHeatmap() {
         title={selected?.name ?? ''}
         subtitle={
           selected
-            ? `${Number(selected.last).toLocaleString('en-IN')} • ${Number(selected.pctChange) >= 0 ? '+' : ''}${Number(selected.pctChange).toFixed(2)}% • ▲${selected.advances} ▼${selected.declines}`
+            ? `${Number(selected.last).toLocaleString('en-IN')} • ${
+                Number(selected.pctChange) >= 0 ? '+' : ''
+              }${Number(selected.pctChange).toFixed(2)}% • ▲${selected.advances} ▼${selected.declines}`
             : ''
         }
       >
-        {selected && <SectorStocks indexName={selected.name} />}
+        {selected && <SectorStocks indexName={selected.name} heatmapType={activeType} />}
       </Drawer>
     </>
   );
