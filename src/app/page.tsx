@@ -1,5 +1,8 @@
-import { DashboardGrid } from '@/components/dashboard/DashboardGrid';
+import { redirect } from 'next/navigation';
+import { getAuthToken } from '@/lib/auth';
 
-export default function Home() {
-  return <DashboardGrid />;
+export default async function Home() {
+  const token = await getAuthToken();
+  if (token) redirect('/dashboard');
+  else redirect('/login');
 }
