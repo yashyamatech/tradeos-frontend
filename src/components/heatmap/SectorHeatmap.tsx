@@ -8,10 +8,8 @@ import { RefreshCw, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TABS: { key: HeatmapType; label: string }[] = [
-  { key: 'sectoral',  label: 'Sectoral Indices' },
-  { key: 'broad',     label: 'Broad Market' },
-  { key: 'thematic',  label: 'Thematic' },
-  { key: 'strategy',  label: 'Strategy' },
+  { key: 'sectoral', label: 'Sectoral Indices' },
+  { key: 'broad',    label: 'Broad Market' },
 ];
 
 function heatColor(pct: number) {
@@ -104,7 +102,7 @@ export function SectorHeatmap() {
             <p className="text-sm text-muted-foreground">
               {lastUpdated
                 ? `Updated ${lastUpdated.toLocaleTimeString('en-IN')} • auto-refreshes every 60s`
-                : 'Source: nseindia.com • click a sector to see its stocks'}
+                : 'Source: nseindia.com • click a sector tile to see its stocks'}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -116,7 +114,6 @@ export function SectorHeatmap() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 border-b border-border">
           {TABS.map((tab) => (
             <button

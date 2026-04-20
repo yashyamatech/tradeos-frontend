@@ -8,14 +8,12 @@ export interface Sector {
   open: number;
   high: number;
   low: number;
-  yearHigh: number;
-  yearLow: number;
   advances: number;
   declines: number;
   unchanged: number;
 }
 
-export type HeatmapType = 'sectoral' | 'broad' | 'thematic' | 'strategy';
+export type HeatmapType = 'sectoral' | 'broad';
 
 interface NseState {
   sectors: Sector[];
@@ -50,7 +48,7 @@ export const useNseStore = create<NseState>((set, get) => ({
       const data = await res.json();
       set({ sectors: data.sectors ?? [], loading: false, lastUpdated: new Date() });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : 'Failed', loading: false });
+      set({ error: e instanceof Error ? e.message : 'Failed to load', loading: false });
     }
   },
 }));
