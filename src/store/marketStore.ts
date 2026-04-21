@@ -5,10 +5,11 @@ interface KotakAuthState {
   authDate: string | null;
   sid: string | null;
   connecting: boolean;
+  disconnecting: boolean;
   error: string | null;
   fetchStatus: () => Promise<void>;
   connect: () => Promise<void>;
-  disconnect: () => void;
+  disconnect: () => Promise<void>;
 }
 
 const API = () => process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -18,6 +19,7 @@ export const useMarketStore = create<KotakAuthState>((set) => ({
   authDate: null,
   sid: null,
   connecting: false,
+  disconnecting: false,
   error: null,
 
   fetchStatus: async () => {
@@ -42,5 +44,11 @@ export const useMarketStore = create<KotakAuthState>((set) => ({
     }
   },
 
-  disconnect: () => set({ authenticated: false, authDate: null, sid: null }),
+  disconnect: async () => {
+    set({ disconnecting: true, error: null });
+    try {
+      await window.fetch(`${API()}/api/auth/logout`, { method: 'POST', cache: 'no-store' });
+    } catch { /* best-effort */ }
+    set({ authenticated: false, authDate: null, sid: null, disconnecting: false });
+  },
 }));
