@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Loader2, Plus, Check } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { apiFetch } from '@/lib/api';
 import { HeatmapType } from '@/store/nseStore';
+import { useWishlistStore } from '@/store/wishlistStore';
 
 interface Stock {
   symbol: string;
@@ -41,6 +42,9 @@ export function SectorStocks({ indexName, heatmapType = 'sectoral' }: { indexNam
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
   const [sort, setSort]       = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'pctChange', dir: 'desc' });
+
+  const wishlistItems  = useWishlistStore((s) => s.items);
+  const addToWishlist  = useWishlistStore((s) => s.add);
 
   useEffect(() => {
     if (!indexName) return;
@@ -87,24 +91,26 @@ export function SectorStocks({ indexName, heatmapType = 'sectoral' }: { indexNam
   return (
     <div>
       <p className="text-xs text-muted-foreground px-5 py-2 border-b border-border">
-        {stocks.length} stocks &bull; click column header to sort
+        {stocks.length} stocks &bull; click column header to sort &bull; <span className="text-primary">+</span> to add to watchlist
       </p>
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="pl-5">Symbol</TableHead>
-            <SH col="lastPrice" label="LTP"       className="text-right" />
-            <SH col="pctChange" label="Chg %"     className="text-right" />
-            <SH col="change"    label="Chg"       className="text-right" />
-            <SH col="high"      label="High"      className="text-right" />
-            <SH col="low"       label="Low"       className="text-right" />
-            <SH col="vwap"      label="VWAP"      className="text-right" />
-            <SH col="volume"    label="Volume"    className="text-right pr-5" />
+            <SH col="lastPrice" label="LTP"    className="text-right" />
+            <SH col="pctChange" label="Chg %"  className="text-right" />
+            <SH col="change"    label="Chg"    className="text-right" />
+            <SH col="high"      label="High"   className="text-right" />
+            <SH col="low"       label="Low"    className="text-right" />
+            <SH col="vwap"      label="VWAP"   className="text-right" />
+            <SH col="volume"    label="Volume" className="text-right" />
+            <TableHead className="w-10"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {sorted.map((s) => {
             const up = Number(s.pctChange) >= 0;
+            const inWatchlist = wishlistItems.some((w) => w.symbol === s.symbol);
             return (
               <TableRow key={s.symbol}>
                 <TableCell className="pl-5">
@@ -125,7 +131,28 @@ export function SectorStocks({ indexName, heatmapType = 'sectoral' }: { indexNam
                 <TableCell className="text-right font-mono text-emerald-400">{fmtPrice(s.high)}</TableCell>
                 <TableCell className="text-right font-mono text-red-400">{fmtPrice(s.low)}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">{fmtPrice(s.vwap)}</TableCell>
-                <TableCell className="text-right font-mono pr-5">{fmtVol(s.volume)}</TableCell>
+                <TableCell className="text-right font-mono">{fmtVol(s.volume)}</TableCell>
+                <TableCell className="pr-3">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={cn(
+                      'h-7 w-7 p-0 rounded-full',
+                      inWatchlist ? 'text-profit hover:text-profit' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                    onClick={() => !inWatchlist && addToWishlist({
+                      symbol: s.symbol,
+                      sector: indexName,
+                      addedLtp: s.lastPrice,
+                      addedPctChange: s.pctChange,
+                    })}
+                    title={inWatchlist ? 'In watchlist' : 'Add to watchlist'}
+                  >
+                    {inWatchlist
+                      ? <Check className="h-3.5 w-3.5" />
+                      : <Plus className="h-3.5 w-3.5" />}
+                  </Button>
+                </TableCell>
               </TableRow>
             );
           })}
