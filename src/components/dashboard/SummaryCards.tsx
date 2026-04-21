@@ -1,5 +1,4 @@
 'use client';
-import { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Wallet, BarChart3 } from 'lucide-react';
 import { useHoldingsStore } from '@/store/holdingsStore';
@@ -9,12 +8,13 @@ function fmt(n: number) {
 }
 
 export function SummaryCards() {
-  const holdings   = useHoldingsStore((s) => s.holdings);
-  const invested   = useHoldingsStore((s) => s.totalInvested());
-  const current    = useHoldingsStore((s) => s.currentValue());
-  const pnl        = useHoldingsStore((s) => s.totalPnl());
-  const pnlPct     = useHoldingsStore((s) => s.totalPnlPct());
-  const isProfit   = pnl >= 0;
+  const holdings = useHoldingsStore((s) => s.holdings);
+
+  const invested = holdings.reduce((sum, h) => sum + (Number(h.holdingCost) || 0), 0);
+  const current  = holdings.reduce((sum, h) => sum + (Number(h.mktValue) || 0), 0);
+  const pnl      = current - invested;
+  const pnlPct   = invested ? (pnl / invested) * 100 : 0;
+  const isProfit = pnl >= 0;
 
   const cards = [
     { title: 'Total Invested', value: fmt(invested), icon: Wallet,      sub: `${holdings.length} holdings` },
