@@ -22,7 +22,7 @@ export const useMarketStore = create<KotakAuthState>((set) => ({
 
   fetchStatus: async () => {
     try {
-      const res = await fetch(`${API()}/api/auth/status`);
+      const res = await window.fetch(`${API()}/api/auth/status`, { cache: 'no-store' });
       const data = await res.json();
       set({ authenticated: data.authenticated, authDate: data.auth_date, sid: data.sid });
     } catch {
@@ -33,7 +33,7 @@ export const useMarketStore = create<KotakAuthState>((set) => ({
   connect: async () => {
     set({ connecting: true, error: null });
     try {
-      const res = await fetch(`${API()}/api/auth/login`, { method: 'POST' });
+      const res = await window.fetch(`${API()}/api/auth/login`, { method: 'POST', cache: 'no-store' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail ?? 'Login failed');
       set({ authenticated: true, authDate: data.auth_date, sid: data.sid, connecting: false });

@@ -6,7 +6,7 @@ export interface Holding {
   quantity: number;
   sellableQuantity: number;
   averagePrice: number;
-  closingPrice: number;   // LTP
+  closingPrice: number;
   mktValue: number;
   holdingCost: number;
   scripId: string;
@@ -19,8 +19,7 @@ interface HoldingsState {
   loading: boolean;
   error: string | null;
   lastUpdated: Date | null;
-  fetch: () => Promise<void>;
-  // Derived
+  load: () => Promise<void>;
   totalInvested: () => number;
   currentValue: () => number;
   totalPnl: () => number;
@@ -35,23 +34,29 @@ export const useHoldingsStore = create<HoldingsState>((set, get) => ({
   error: null,
   lastUpdated: null,
 
-  fetch: async () => {
+  load: async () => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch(`${API()}/api/market/holdings`);
+      const res = await window.fetch(`${API()}/api/market/holdings`, {
+        cache: 'no-store',
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const raw: unknown[] = data?.holdings?.data ?? data?.holdings ?? [];
-      set({ holdings: Array.isArray(raw) ? (raw as Holding[]) : [], loading: false, lastUpdated: new Date() });
+      set({
+        holdings: Array.isArray(raw) ? (raw as Holding[]) : [],
+        loading: false,
+        lastUpdated: new Date(),
+      });
     } catch (e) {
       set({ error: e instanceof Error ? e.message : 'Failed to load', loading: false });
     }
   },
 
   totalInvested: () => get().holdings.reduce((s, h) => s + (Number(h.holdingCost) || 0), 0),
-  currentValue: () => get().holdings.reduce((s, h) => s + (Number(h.mktValue) || 0), 0),
-  totalPnl: () => get().currentValue() - get().totalInvested(),
-  totalPnlPct: () => {
+  currentValue:  () => get().holdings.reduce((s, h) => s + (Number(h.mktValue) || 0), 0),
+  totalPnl:      () => get().currentValue() - get().totalInvested(),
+  totalPnlPct:   () => {
     const inv = get().totalInvested();
     return inv ? (get().totalPnl() / inv) * 100 : 0;
   },

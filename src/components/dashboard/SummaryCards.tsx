@@ -9,17 +9,16 @@ function fmt(n: number) {
 }
 
 export function SummaryCards() {
-  const { holdings, totalInvested, currentValue, totalPnl, totalPnlPct } = useHoldingsStore();
-
-  const invested = totalInvested();
-  const current = currentValue();
-  const pnl = totalPnl();
-  const pnlPct = totalPnlPct();
-  const isProfit = pnl >= 0;
+  const holdings   = useHoldingsStore((s) => s.holdings);
+  const invested   = useHoldingsStore((s) => s.totalInvested());
+  const current    = useHoldingsStore((s) => s.currentValue());
+  const pnl        = useHoldingsStore((s) => s.totalPnl());
+  const pnlPct     = useHoldingsStore((s) => s.totalPnlPct());
+  const isProfit   = pnl >= 0;
 
   const cards = [
-    { title: 'Total Invested', value: fmt(invested), icon: Wallet, sub: `${holdings.length} holdings` },
-    { title: 'Current Value', value: fmt(current), icon: BarChart3, sub: 'at LTP' },
+    { title: 'Total Invested', value: fmt(invested), icon: Wallet,      sub: `${holdings.length} holdings` },
+    { title: 'Current Value',  value: fmt(current),  icon: BarChart3,   sub: 'at LTP' },
     {
       title: 'Total P&L',
       value: `${isProfit ? '+' : ''}${fmt(pnl)}`,

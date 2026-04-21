@@ -12,9 +12,13 @@ function fmtPrice(n: number | string) {
 }
 
 export function HoldingsTable() {
-  const { holdings, loading, error, fetch, lastUpdated } = useHoldingsStore();
+  const holdings    = useHoldingsStore((s) => s.holdings);
+  const loading     = useHoldingsStore((s) => s.loading);
+  const error       = useHoldingsStore((s) => s.error);
+  const lastUpdated = useHoldingsStore((s) => s.lastUpdated);
+  const load        = useHoldingsStore((s) => s.load);
 
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   return (
     <Card>
@@ -27,7 +31,7 @@ export function HoldingsTable() {
             </p>
           )}
         </div>
-        <Button variant="outline" size="sm" onClick={fetch} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
           <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
@@ -40,7 +44,7 @@ export function HoldingsTable() {
         ) : error ? (
           <div className="py-8 text-center">
             <p className="text-destructive text-sm">{error}</p>
-            <Button variant="outline" size="sm" className="mt-3" onClick={fetch}>Retry</Button>
+            <Button variant="outline" size="sm" className="mt-3" onClick={load}>Retry</Button>
           </div>
         ) : holdings.length === 0 ? (
           <p className="text-muted-foreground text-sm py-12 text-center">No holdings found</p>
@@ -59,7 +63,7 @@ export function HoldingsTable() {
             </TableHeader>
             <TableBody>
               {holdings.map((h, i) => {
-                const pnl = Number(h.mktValue) - Number(h.holdingCost);
+                const pnl    = Number(h.mktValue) - Number(h.holdingCost);
                 const pnlPct = Number(h.holdingCost) ? (pnl / Number(h.holdingCost)) * 100 : 0;
                 const isProfit = pnl >= 0;
                 return (
