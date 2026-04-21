@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiFetch } from '@/lib/api';
 
 export interface Holding {
   displaySymbol: string;
@@ -26,8 +27,6 @@ interface HoldingsState {
   totalPnlPct: () => number;
 }
 
-const API = () => process.env.NEXT_PUBLIC_API_URL ?? '';
-
 export const useHoldingsStore = create<HoldingsState>((set, get) => ({
   holdings: [],
   loading: false,
@@ -37,9 +36,7 @@ export const useHoldingsStore = create<HoldingsState>((set, get) => ({
   load: async () => {
     set({ loading: true, error: null });
     try {
-      const res = await window.fetch(`${API()}/api/market/holdings`, {
-        cache: 'no-store',
-      });
+      const res = await apiFetch('/api/market/holdings');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const raw: unknown[] = data?.holdings?.data ?? data?.holdings ?? [];

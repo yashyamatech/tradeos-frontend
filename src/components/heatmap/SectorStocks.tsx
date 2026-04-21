@@ -4,6 +4,7 @@ import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/api';
 import { HeatmapType } from '@/store/nseStore';
 
 interface Stock {
@@ -44,8 +45,7 @@ export function SectorStocks({ indexName, heatmapType = 'sectoral' }: { indexNam
   useEffect(() => {
     if (!indexName) return;
     setLoading(true); setError('');
-    const api = process.env.NEXT_PUBLIC_API_URL ?? '';
-    fetch(`${api}/api/nse/sector/${encodeURIComponent(indexName)}?type=${heatmapType}`)
+    apiFetch(`/api/nse/sector/${encodeURIComponent(indexName)}?type=${heatmapType}`)
       .then((r) => r.ok ? r.json() : Promise.reject(r.status))
       .then((d) => setStocks(d.stocks ?? []))
       .catch(() => setError('Failed to load stocks'))
@@ -87,7 +87,7 @@ export function SectorStocks({ indexName, heatmapType = 'sectoral' }: { indexNam
   return (
     <div>
       <p className="text-xs text-muted-foreground px-5 py-2 border-b border-border">
-        {stocks.length} stocks • click column header to sort
+        {stocks.length} stocks &bull; click column header to sort
       </p>
       <Table>
         <TableHeader>

@@ -1,9 +1,9 @@
 import { create } from 'zustand';
+import { apiFetch } from '@/lib/api';
 
 interface KotakAuthState {
   authenticated: boolean;
   authDate: string | null;
-  sid: string | null;
   connecting: boolean;
   disconnecting: boolean;
   error: string | null;
@@ -12,21 +12,18 @@ interface KotakAuthState {
   disconnect: () => Promise<void>;
 }
 
-const API = () => process.env.NEXT_PUBLIC_API_URL ?? '';
-
 export const useMarketStore = create<KotakAuthState>((set) => ({
   authenticated: false,
   authDate: null,
-  sid: null,
   connecting: false,
   disconnecting: false,
   error: null,
 
   fetchStatus: async () => {
     try {
-      const res = await window.fetch(`${API()}/api/auth/status`, { cache: 'no-store' });
+      const res = await apiFetch('/api/auth/status');
       const data = await res.json();
-      set({ authenticated: data.authenticated, authDate: data.auth_date, sid: data.sid });
+      set({ authenticated: data.authenticated, authDate: data.auth_date });
     } catch {
       set({ authenticated: false });
     }
@@ -35,10 +32,10 @@ export const useMarketStore = create<KotakAuthState>((set) => ({
   connect: async () => {
     set({ connecting: true, error: null });
     try {
-      const res = await window.fetch(`${API()}/api/auth/login`, { method: 'POST', cache: 'no-store' });
+      const res = await apiFetch('/api/auth/login', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail ?? 'Login failed');
-      set({ authenticated: true, authDate: data.auth_date, sid: data.sid, connecting: false });
+      set({ authenticated: true, authDate: data.auth_date, connecting: false });
     } catch (e) {
       set({ error: e instanceof Error ? e.message : 'Error', connecting: false });
     }
@@ -47,8 +44,8 @@ export const useMarketStore = create<KotakAuthState>((set) => ({
   disconnect: async () => {
     set({ disconnecting: true, error: null });
     try {
-      await window.fetch(`${API()}/api/auth/logout`, { method: 'POST', cache: 'no-store' });
+      await apiFetch('/api/auth/logout', { method: 'POST' });
     } catch { /* best-effort */ }
-    set({ authenticated: false, authDate: null, sid: null, disconnecting: false });
+    set({ authenticated: false, authDate: null, disconnecting: false });
   },
 }));

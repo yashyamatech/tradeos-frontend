@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiFetch } from '@/lib/api';
 
 export interface Sector {
   name: string;
@@ -25,8 +26,6 @@ interface NseState {
   fetch: (type?: HeatmapType) => Promise<void>;
 }
 
-const API = () => process.env.NEXT_PUBLIC_API_URL ?? '';
-
 export const useNseStore = create<NseState>((set, get) => ({
   sectors: [],
   activeType: 'sectoral',
@@ -43,7 +42,7 @@ export const useNseStore = create<NseState>((set, get) => ({
     const t = type ?? get().activeType;
     set({ loading: true, error: null });
     try {
-      const res = await fetch(`${API()}/api/nse/heatmap?type=${t}`);
+      const res = await apiFetch(`/api/nse/heatmap?type=${t}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       set({ sectors: data.sectors ?? [], loading: false, lastUpdated: new Date() });
