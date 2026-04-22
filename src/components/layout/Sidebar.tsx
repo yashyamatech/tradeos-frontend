@@ -1,4 +1,5 @@
 'use client';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -6,10 +7,12 @@ import {
   Grid3x3,
   Bookmark,
   BookOpen,
+  FileText,
   ChevronLeft,
   ChevronRight,
   LogOut,
   Power,
+  PowerOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/store/uiStore';
@@ -17,19 +20,24 @@ import { useMarketStore } from '@/store/marketStore';
 import { Button } from '@/components/ui/button';
 
 const NAV = [
-  { href: '/dashboard',           label: 'Portfolio',   icon: LayoutDashboard },
-  { href: '/dashboard/heatmap',   label: 'NSE Heatmap', icon: Grid3x3 },
-  { href: '/dashboard/watchlist', label: 'Watchlist',   icon: Bookmark },
-  { href: '/dashboard/journal',   label: 'Journal',     icon: BookOpen, soon: true },
+  { href: '/dashboard',           label: 'Portfolio',     icon: LayoutDashboard },
+  { href: '/dashboard/heatmap',   label: 'NSE Heatmap',  icon: Grid3x3 },
+  { href: '/dashboard/watchlist', label: 'Watchlist',    icon: Bookmark },
+  { href: '/dashboard/trades',    label: 'Paper Trades', icon: FileText },
+  { href: '/dashboard/journal',   label: 'Journal',      icon: BookOpen, soon: true },
 ];
 
 export function Sidebar() {
-  const pathname    = usePathname();
-  const router      = useRouter();
+  const pathname   = usePathname();
+  const router     = useRouter();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
-  const authenticated  = useMarketStore((s) => s.authenticated);
-  const disconnecting  = useMarketStore((s) => s.disconnecting);
-  const disconnect     = useMarketStore((s) => s.disconnect);
+  const authenticated = useMarketStore((s) => s.authenticated);
+  const disconnecting = useMarketStore((s) => s.disconnecting);
+  const disconnect    = useMarketStore((s) => s.disconnect);
+  const fetchStatus   = useMarketStore((s) => s.fetchStatus);
+
+  // Fetch auth state on first render so buttons are visible immediately
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
   async function handleLogout() {
     await window.fetch('/api/logout', { method: 'POST' });
@@ -88,7 +96,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Bottom actions */}
+      {/* Bottom actions — always visible in both collapsed and expanded */}
       <div className="p-2 border-t border-border space-y-1">
         {authenticated && (
           <button
@@ -121,13 +129,19 @@ export function Sidebar() {
           {!sidebarCollapsed && <span>Logout</span>}
         </button>
 
-        {authenticated && !sidebarCollapsed && (
+        {/* Shown whenever authenticated — both collapsed (icon only) and expanded */}
+        {authenticated && (
           <button
             onClick={handleDisconnectAndLogout}
-            className="flex items-center gap-3 w-full px-2 py-2 rounded-md text-sm transition-colors text-loss/70 hover:bg-loss/10 hover:text-loss"
+            title="Disconnect + Logout"
+            className={cn(
+              'flex items-center gap-3 w-full px-2 py-2 rounded-md text-sm transition-colors',
+              'text-loss/70 hover:bg-loss/10 hover:text-loss',
+              sidebarCollapsed && 'justify-center'
+            )}
           >
-            <LogOut className="h-4 w-4 shrink-0" />
-            <span>Disconnect + Logout</span>
+            <PowerOff className="h-4 w-4 shrink-0" />
+            {!sidebarCollapsed && <span>Disconnect + Logout</span>}
           </button>
         )}
 
