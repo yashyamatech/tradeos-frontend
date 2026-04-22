@@ -1,3 +1,4 @@
+import { ScripSearch } from '@/components/watchlist/ScripSearch';
 import { WatchlistTable } from '@/components/watchlist/WatchlistTable';
 
 export default function WatchlistPage() {
@@ -6,9 +7,12 @@ export default function WatchlistPage() {
       <div>
         <h1 className="text-2xl font-bold">Watchlist</h1>
         <p className="text-sm text-muted-foreground">
-          Add stocks from rising sectors. Set entry, stop loss, and target to evaluate the R-factor before taking a trade.
+          Search any NSE scrip or add from the heatmap. Set entry, SL, and target to evaluate the R-factor.
         </p>
       </div>
+
+      <ScripSearch />
+
       <WatchlistTable />
     </div>
   );
