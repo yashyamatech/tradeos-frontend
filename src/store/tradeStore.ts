@@ -1,63 +1,122 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { apiFetch } from '@/lib/api';
 
-interface Trade {
-  id: string;
-  symbol: string;
-  direction: 'BUY' | 'SELL';
-  quantity: number;
+export type TradeDirection = 'BUY' | 'SELL';
+export type TradeStatus   = 'open' | 'closed';
+
+export interface Trade {
+  id:         string;
+  symbol:     string;
+  direction:  TradeDirection;
+  quantity:   number;
   entryPrice: number;
-  stopLoss: number;
-  target: number;
-  mode: 'paper' | 'live';
-  status: 'open' | 'closed';
-  pnl?: number;
+  stopLoss:   number;
+  target:     number;
+  exitPrice?: number;
+  pnl?:       number;
+  status:     TradeStatus;
+  notes?:     string;
+  createdAt:  string;
+  closedAt?:  string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function fromApi(t: any): Trade {
+  return {
+    id:         t.id,
+    symbol:     t.symbol,
+    direction:  (t.direction ?? 'BUY') as TradeDirection,
+    quantity:   t.quantity  ?? 1,
+    entryPrice: t.entry_price,
+    stopLoss:   t.stop_loss ?? 0,
+    target:     t.target    ?? 0,
+    exitPrice:  t.exit_price ?? undefined,
+    pnl:        t.pnl        ?? undefined,
+    status:     (t.status   ?? 'open') as TradeStatus,
+    notes:      t.notes      ?? undefined,
+    createdAt:  t.created_at ?? '',
+    closedAt:   t.closed_at  ?? undefined,
+  };
+}
+
+export function tradePnl(trade: Trade): number {
+  if (trade.status === 'closed') return trade.pnl ?? 0;
+  return 0; // open trades: no live price tracking needed
+}
+
+export function tradeRFactor(trade: Trade): number | null {
+  const risk = Math.abs(trade.entryPrice - trade.stopLoss);
+  if (risk < 0.001) return null;
+  return parseFloat((Math.abs(trade.target - trade.entryPrice) / risk).toFixed(2));
 }
 
 interface TradeState {
-  openTrades: Trade[];
-  closedTrades: Trade[];
-  dailyPnL: number;
-  isHalted: boolean;
-  isLiveMode: boolean;
-  setHalted: (halted: boolean) => void;
-  setLiveMode: (live: boolean) => void;
-  addTrade: (trade: Trade) => void;
-  closeTrade: (id: string, exitPrice: number, pnl: number) => void;
-  resetDaily: () => void;
+  trades:      Trade[];
+  loading:     boolean;
+  error:       string | null;
+  fetchTrades: () => Promise<void>;
+  createTrade: (t: Omit<Trade, 'id' | 'createdAt' | 'status' | 'pnl'>) => Promise<void>;
+  closeTrade:  (id: string, exitPrice: number) => Promise<void>;
+  deleteTrade: (id: string) => Promise<void>;
 }
 
-export const useTradeStore = create<TradeState>()(
-  persist(
-    (set, get) => ({
-      openTrades: [],
-      closedTrades: [],
-      dailyPnL: 0,
-      isHalted: false,
-      isLiveMode: false,
+export const useTradeStore = create<TradeState>((set) => ({
+  trades:  [],
+  loading: false,
+  error:   null,
 
-      setHalted: (halted) => set({ isHalted: halted }),
-      setLiveMode: (live) => set({ isLiveMode: live }),
+  fetchTrades: async () => {
+    set({ loading: true, error: null });
+    try {
+      const res = await apiFetch('/api/trades/');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      set({ trades: (await res.json()).map(fromApi), loading: false });
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'Failed to load trades', loading: false });
+    }
+  },
 
-      addTrade: (trade) =>
-        set((s) => ({ openTrades: [...s.openTrades, trade] })),
-
-      closeTrade: (id, exitPrice, pnl) =>
-        set((s) => {
-          const trade = s.openTrades.find((t) => t.id === id);
-          if (!trade) return s;
-          const newDailyPnL = s.dailyPnL + pnl;
-          return {
-            openTrades: s.openTrades.filter((t) => t.id !== id),
-            closedTrades: [...s.closedTrades, { ...trade, status: 'closed', pnl }],
-            dailyPnL: newDailyPnL,
-            // Auto-halt if daily loss limit hit
-            isHalted: newDailyPnL <= -750,
-          };
+  createTrade: async (t) => {
+    try {
+      const res = await apiFetch('/api/trades/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol:      t.symbol,
+          direction:   t.direction,
+          quantity:    t.quantity,
+          entry_price: t.entryPrice,
+          stop_loss:   t.stopLoss,
+          target:      t.target,
+          notes:       t.notes ?? null,
         }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const created = fromApi(await res.json());
+      set((s) => ({ trades: [created, ...s.trades] }));
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'Failed to create trade' });
+    }
+  },
 
-      resetDaily: () => set({ dailyPnL: 0, isHalted: false }),
-    }),
-    { name: 'tradeos-store' }
-  )
-);
+  closeTrade: async (id, exitPrice) => {
+    try {
+      const res = await apiFetch(`/api/trades/${id}/close?exit_price=${exitPrice}`, { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const updated = fromApi(await res.json());
+      set((s) => ({ trades: s.trades.map((t) => (t.id === id ? updated : t)) }));
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'Failed to close trade' });
+    }
+  },
+
+  deleteTrade: async (id) => {
+    try {
+      const res = await apiFetch(`/api/trades/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      set((s) => ({ trades: s.trades.filter((t) => t.id !== id) }));
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'Failed to delete trade' });
+    }
+  },
+}));
