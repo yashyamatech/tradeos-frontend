@@ -16,17 +16,18 @@ function fmtPnl(v: number) {
 function CloseRow({ trade, onCancel }: { trade: PaperTrade; onCancel: () => void }) {
   const closeTrade = usePaperTradeStore((s) => s.closeTrade);
   const [exitPrice, setExitPrice] = useState(String(trade.ltp ?? trade.entryPrice));
+  const [busy, setBusy] = useState(false);
+  async function submit() {
+    setBusy(true);
+    await closeTrade(trade.id, Number(exitPrice));
+    setBusy(false);
+    onCancel();
+  }
   return (
     <div className="flex items-center gap-1">
-      <Input
-        type="number" step="0.05"
-        value={exitPrice}
-        onChange={(e) => setExitPrice(e.target.value)}
-        className="w-20 h-6 text-xs font-mono"
-      />
-      <Button size="sm" className="h-6 px-2 text-xs" onClick={() => closeTrade(trade.id, Number(exitPrice))}>
-        Exit
-      </Button>
+      <Input type="number" step="0.05" value={exitPrice} onChange={(e) => setExitPrice(e.target.value)}
+        className="w-20 h-6 text-xs font-mono" />
+      <Button size="sm" className="h-6 px-2 text-xs" onClick={submit} disabled={busy}>Exit</Button>
       <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={onCancel}>
         <X className="h-3 w-3" />
       </Button>
@@ -35,15 +36,11 @@ function CloseRow({ trade, onCancel }: { trade: PaperTrade; onCancel: () => void
 }
 
 export function PaperTradeTable({ trades, showClose = true }: { trades: PaperTrade[]; showClose?: boolean }) {
-  const removeTrade = usePaperTradeStore((s) => s.removeTrade);
+  const deleteTrade = usePaperTradeStore((s) => s.deleteTrade);
   const [closingId, setClosingId] = useState<string | null>(null);
 
   if (trades.length === 0) {
-    return (
-      <div className="text-center py-16 text-muted-foreground text-sm">
-        No trades here yet.
-      </div>
-    );
+    return <div className="text-center py-16 text-muted-foreground text-sm">No trades here yet.</div>;
   }
 
   return (
@@ -71,47 +68,28 @@ export function PaperTradeTable({ trades, showClose = true }: { trades: PaperTra
                 <TableCell className="pl-4">
                   <div className="font-mono font-semibold text-sm">
                     {trade.symbol} {trade.strike}
-                    <Badge
-                      variant={trade.optionType === 'CE' ? 'default' : 'destructive'}
-                      className="ml-1.5 text-[10px] py-0 h-4"
-                    >
-                      {trade.optionType}
-                    </Badge>
+                    <Badge variant={trade.optionType === 'CE' ? 'default' : 'destructive'}
+                      className="ml-1.5 text-[10px] py-0 h-4">{trade.optionType}</Badge>
                   </div>
                   <div className="text-[10px] text-muted-foreground">
                     {trade.expiry}&nbsp;·&nbsp;{trade.lots}L × {trade.lotSize}
                   </div>
                 </TableCell>
-
-                <TableCell className="text-right font-mono text-sm">
-                  ₹{trade.entryPrice.toFixed(2)}
-                </TableCell>
-
+                <TableCell className="text-right font-mono text-sm">₹{trade.entryPrice.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-mono text-xs">
                   <span className="text-loss">{trade.stopLoss > 0 ? `₹${trade.stopLoss.toFixed(2)}` : '—'}</span>
                   <span className="text-muted-foreground"> / </span>
                   <span className="text-profit">{trade.target > 0 ? `₹${trade.target.toFixed(2)}` : '—'}</span>
                 </TableCell>
-
                 <TableCell className="text-right font-mono text-sm">
-                  {ltp !== undefined
-                    ? `₹${ltp.toFixed(2)}`
-                    : <span className="text-muted-foreground text-xs">—</span>}
+                  {ltp !== undefined ? `₹${ltp.toFixed(2)}` : <span className="text-muted-foreground text-xs">—</span>}
                 </TableCell>
-
-                <TableCell className={cn('text-right font-mono text-sm font-semibold', pnlCx)}>
-                  {fmtPnl(pnl)}
-                </TableCell>
-
+                <TableCell className={cn('text-right font-mono text-sm font-semibold', pnlCx)}>{fmtPnl(pnl)}</TableCell>
                 <TableCell className="text-center">
-                  {r !== null ? (
-                    <span className={cn(
-                      'font-mono font-bold text-xs',
-                      r >= 2 ? 'text-profit' : r >= 1 ? 'text-yellow-400' : 'text-loss'
-                    )}>{r}R</span>
-                  ) : '—'}
+                  {r !== null
+                    ? <span className={cn('font-mono font-bold text-xs', r >= 2 ? 'text-profit' : r >= 1 ? 'text-yellow-400' : 'text-loss')}>{r}R</span>
+                    : '—'}
                 </TableCell>
-
                 <TableCell className="text-right pr-4">
                   {trade.status === 'open' && showClose && (
                     closingId === trade.id
@@ -119,7 +97,8 @@ export function PaperTradeTable({ trades, showClose = true }: { trades: PaperTra
                       : <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => setClosingId(trade.id)}>Close</Button>
                   )}
                   {trade.status === 'closed' && (
-                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-loss" onClick={() => removeTrade(trade.id)}>
+                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-loss"
+                      onClick={() => deleteTrade(trade.id)}>
                       <X className="h-3 w-3" />
                     </Button>
                   )}
