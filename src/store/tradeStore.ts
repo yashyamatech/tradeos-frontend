@@ -39,9 +39,18 @@ function fromApi(t: any): Trade {
   };
 }
 
+async function apiError(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json();
+    return body.detail ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function tradePnl(trade: Trade): number {
   if (trade.status === 'closed') return trade.pnl ?? 0;
-  return 0; // open trades: no live price tracking needed
+  return 0;
 }
 
 export function tradeRFactor(trade: Trade): number | null {
@@ -69,7 +78,7 @@ export const useTradeStore = create<TradeState>((set) => ({
     set({ loading: true, error: null });
     try {
       const res = await apiFetch('/api/trades/');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(await apiError(res, `HTTP ${res.status}`));
       set({ trades: (await res.json()).map(fromApi), loading: false });
     } catch (e) {
       set({ error: e instanceof Error ? e.message : 'Failed to load trades', loading: false });
@@ -77,10 +86,10 @@ export const useTradeStore = create<TradeState>((set) => ({
   },
 
   createTrade: async (t) => {
+    set({ error: null });
     try {
       const res = await apiFetch('/api/trades/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           symbol:      t.symbol,
           direction:   t.direction,
@@ -91,7 +100,7 @@ export const useTradeStore = create<TradeState>((set) => ({
           notes:       t.notes ?? null,
         }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(await apiError(res, `HTTP ${res.status}`));
       const created = fromApi(await res.json());
       set((s) => ({ trades: [created, ...s.trades] }));
     } catch (e) {
@@ -100,9 +109,10 @@ export const useTradeStore = create<TradeState>((set) => ({
   },
 
   closeTrade: async (id, exitPrice) => {
+    set({ error: null });
     try {
       const res = await apiFetch(`/api/trades/${id}/close?exit_price=${exitPrice}`, { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(await apiError(res, `HTTP ${res.status}`));
       const updated = fromApi(await res.json());
       set((s) => ({ trades: s.trades.map((t) => (t.id === id ? updated : t)) }));
     } catch (e) {
@@ -111,9 +121,10 @@ export const useTradeStore = create<TradeState>((set) => ({
   },
 
   deleteTrade: async (id) => {
+    set({ error: null });
     try {
       const res = await apiFetch(`/api/trades/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(await apiError(res, `HTTP ${res.status}`));
       set((s) => ({ trades: s.trades.filter((t) => t.id !== id) }));
     } catch (e) {
       set({ error: e instanceof Error ? e.message : 'Failed to delete trade' });
