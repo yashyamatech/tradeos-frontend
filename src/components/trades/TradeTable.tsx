@@ -2,14 +2,14 @@
 import { useState } from 'react';
 import { X, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useTradeStore, tradeRFactor, tradeNetPnl, BROKERAGE_PER_LEG, Trade } from '@/store/tradeStore';
+import { useTradeStore, tradeRFactor, tradeNetPnl, BROKERAGE_PER_TRADE, Trade } from '@/store/tradeStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
-function fmt(v: number, sign = true) {
-  const s = sign ? (v >= 0 ? '+' : '-') : '';
+function fmt(v: number) {
+  const s = v >= 0 ? '+' : '-';
   return `${s}₹${Math.abs(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -61,7 +61,6 @@ export function TradeTable({ trades, showClose = true }: { trades: Trade[]; show
           {trades.map((trade) => {
             const r      = tradeRFactor(trade);
             const gross  = trade.pnl ?? 0;
-            const brok   = trade.status === 'closed' ? BROKERAGE_PER_LEG * 2 : BROKERAGE_PER_LEG;
             const net    = tradeNetPnl(trade);
             const closed = trade.status === 'closed';
             return (
@@ -88,15 +87,12 @@ export function TradeTable({ trades, showClose = true }: { trades: Trade[]; show
                 <TableCell className="text-right font-mono text-sm">
                   {trade.exitPrice ? `₹${trade.exitPrice.toFixed(2)}` : <span className="text-muted-foreground">—</span>}
                 </TableCell>
-                {/* Gross P&L */}
                 <TableCell className={cn('text-right font-mono text-sm', !closed && 'text-muted-foreground')}>
                   {closed ? fmt(gross) : '—'}
                 </TableCell>
-                {/* Brokerage */}
                 <TableCell className="text-right font-mono text-xs text-loss">
-                  −₹{brok}
+                  −₹{BROKERAGE_PER_TRADE}
                 </TableCell>
-                {/* Net P&L */}
                 <TableCell className={cn('text-right font-mono text-sm font-semibold', !closed ? 'text-muted-foreground' : net >= 0 ? 'text-profit' : 'text-loss')}>
                   {closed ? fmt(net) : '—'}
                 </TableCell>

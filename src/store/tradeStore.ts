@@ -4,7 +4,7 @@ import { apiFetch } from '@/lib/api';
 export type TradeDirection = 'BUY' | 'SELL';
 export type TradeStatus   = 'open' | 'closed';
 
-export const BROKERAGE_PER_LEG = 100; // ₹100 per trade leg (entry or exit)
+export const BROKERAGE_PER_TRADE = 100; // ₹100 flat per trade (not per leg)
 
 export interface Trade {
   id:         string;
@@ -50,15 +50,15 @@ async function apiError(res: Response, fallback: string): Promise<string> {
   }
 }
 
-/** ₹100 for open (entry only) · ₹200 for closed (entry + exit) */
-export function tradeBrokerage(trade: Trade): number {
-  return trade.status === 'closed' ? BROKERAGE_PER_LEG * 2 : BROKERAGE_PER_LEG;
+/** ₹100 flat per trade */
+export function tradeBrokerage(_trade: Trade): number {
+  return BROKERAGE_PER_TRADE;
 }
 
-/** Gross P&L minus round-trip brokerage. 0 for open trades. */
+/** Gross P&L minus ₹100 brokerage. 0 for open trades. */
 export function tradeNetPnl(trade: Trade): number {
   if (trade.status !== 'closed') return 0;
-  return (trade.pnl ?? 0) - BROKERAGE_PER_LEG * 2;
+  return (trade.pnl ?? 0) - BROKERAGE_PER_TRADE;
 }
 
 export function tradeRFactor(trade: Trade): number | null {
@@ -67,7 +67,6 @@ export function tradeRFactor(trade: Trade): number | null {
   return parseFloat((Math.abs(trade.target - trade.entryPrice) / risk).toFixed(2));
 }
 
-/** True when the trade's local calendar date matches today */
 export function isTradeToday(trade: Trade): boolean {
   const d   = new Date(trade.createdAt);
   const now = new Date();
