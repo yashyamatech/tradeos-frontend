@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { X, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTradeStore, tradeRFactor, tradeNetPnl, BROKERAGE_PER_TRADE, Trade } from '@/store/tradeStore';
@@ -7,54 +7,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { NoteCell } from '@/components/trades/NoteCell';
 
 function fmt(v: number) {
   const s = v >= 0 ? '+' : '-';
   return `${s}₹${Math.abs(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function NoteCell({ note }: { note: string }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const LIMIT = 32;
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [open]);
-
-  if (note.length <= LIMIT) {
-    return <div className="text-[10px] text-muted-foreground mt-0.5">{note}</div>;
-  }
-
-  return (
-    <div ref={ref} className="relative mt-0.5">
-      <div className="flex items-center gap-1">
-        <span className="text-[10px] text-muted-foreground truncate max-w-[90px]">{note}</span>
-        <button
-          onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-          className="shrink-0 text-[9px] font-medium text-primary hover:underline leading-none"
-        >
-          {open ? 'less' : 'more'}
-        </button>
-      </div>
-      {open && (
-        <div className="absolute left-0 top-full mt-1.5 z-50 w-64 rounded-lg border border-border bg-card shadow-xl p-3">
-          <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">{note}</p>
-          <button
-            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
-            className="mt-2 text-[10px] text-muted-foreground hover:text-foreground"
-          >
-            close
-          </button>
-        </div>
-      )}
-    </div>
-  );
 }
 
 function CloseRow({ trade, onCancel }: { trade: Trade; onCancel: () => void }) {
@@ -134,9 +91,7 @@ export function TradeTable({ trades, showClose = true }: { trades: Trade[]; show
                 <TableCell className={cn('text-right font-mono text-sm', !closed && 'text-muted-foreground')}>
                   {closed ? fmt(gross) : '—'}
                 </TableCell>
-                <TableCell className="text-right font-mono text-xs text-loss">
-                  −₹{BROKERAGE_PER_TRADE}
-                </TableCell>
+                <TableCell className="text-right font-mono text-xs text-loss">−₹{BROKERAGE_PER_TRADE}</TableCell>
                 <TableCell className={cn('text-right font-mono text-sm font-semibold', !closed ? 'text-muted-foreground' : net >= 0 ? 'text-profit' : 'text-loss')}>
                   {closed ? fmt(net) : '—'}
                 </TableCell>
