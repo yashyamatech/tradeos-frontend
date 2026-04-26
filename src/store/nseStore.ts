@@ -26,6 +26,15 @@ interface NseState {
   fetch: (type?: HeatmapType) => Promise<void>;
 }
 
+async function parseError(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json();
+    return body.detail ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export const useNseStore = create<NseState>((set, get) => ({
   sectors: [],
   activeType: 'sectoral',
@@ -43,11 +52,20 @@ export const useNseStore = create<NseState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const res = await apiFetch(`/api/nse/heatmap?type=${t}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const msg = await parseError(res, `HTTP ${res.status}`);
+        throw new Error(msg);
+      }
       const data = await res.json();
       set({ sectors: data.sectors ?? [], loading: false, lastUpdated: new Date() });
-    } catch (e) {
-      set({ error: e instanceof Error ? e.message : 'Failed to load', loading: false });
+    } catch (e: unknown) {
+      const msg =
+        e instanceof TypeError && e.message === 'Failed to fetch'
+          ? 'Cannot reach backend — check NEXT_PUBLIC_API_URL'
+          : e instanceof Error
+          ? e.message
+          : 'Failed to load';
+      set({ error: msg, loading: false });
     }
   },
 }));
