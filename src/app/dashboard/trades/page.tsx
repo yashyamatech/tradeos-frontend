@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, RefreshCw, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useTradeStore } from '@/store/tradeStore';
+import { useTradeStore, isTradeToday, tradeNetPnl, BROKERAGE_PER_LEG } from '@/store/tradeStore';
 import { TradeTable } from '@/components/trades/TradeTable';
 import { TradeForm } from '@/components/trades/TradeForm';
 import { Button } from '@/components/ui/button';
@@ -14,21 +14,27 @@ export default function TradesPage() {
   const error       = useTradeStore((s) => s.error);
   const fetchTrades = useTradeStore((s) => s.fetchTrades);
 
-  const openTrades   = trades.filter((t) => t.status === 'open');
-  const closedTrades = trades.filter((t) => t.status === 'closed');
-
   const [formOpen, setFormOpen] = useState(false);
 
   useEffect(() => { fetchTrades(); }, [fetchTrades]);
 
-  const totalClosedPnl = closedTrades.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
+  // Only show today's trades in the journal
+  const todayTrades  = trades.filter(isTradeToday);
+  const openTrades   = todayTrades.filter((t) => t.status === 'open');
+  const closedTrades = todayTrades.filter((t) => t.status === 'closed');
+
+  const grossPnl    = closedTrades.reduce((s, t) => s + (t.pnl ?? 0), 0);
+  const brokerage   = todayTrades.reduce((s, t) => s + (t.status === 'closed' ? BROKERAGE_PER_LEG * 2 : BROKERAGE_PER_LEG), 0);
+  const netPnl      = closedTrades.reduce((s, t) => s + tradeNetPnl(t), 0);
+
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
 
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Trade Journal</h1>
-          <p className="text-sm text-muted-foreground">Entries saved to PostgreSQL</p>
+          <p className="text-sm text-muted-foreground">{today} · today’s entries only</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={fetchTrades} disabled={loading}>
@@ -51,12 +57,21 @@ export default function TradesPage() {
 
       {loading && <div className="text-center py-8 text-sm text-muted-foreground">Loading…</div>}
 
-      {!loading && closedTrades.length > 0 && (
-        <div className="flex items-center gap-4 rounded-lg border border-border bg-card p-3 text-sm">
-          <span className="text-muted-foreground">Realised P&amp;L</span>
-          <span className={cn('font-mono font-bold', totalClosedPnl >= 0 ? 'text-profit' : 'text-loss')}>
-            {totalClosedPnl >= 0 ? '+' : ''}₹{Math.abs(totalClosedPnl).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
+      {/* Today’s P&L summary — shown when there are any trades today */}
+      {!loading && todayTrades.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Trades today', value: `${todayTrades.length}`, sub: `${openTrades.length} open / ${closedTrades.length} closed`, cx: '' },
+            { label: 'Brokerage', value: `−₹${brokerage}`, sub: '₹100 per leg', cx: 'text-loss' },
+            { label: 'Gross P&L', value: (grossPnl >= 0 ? '+' : '') + `₹${Math.abs(grossPnl).toFixed(2)}`, sub: 'before brokerage', cx: grossPnl >= 0 ? 'text-profit' : 'text-loss' },
+            { label: 'Net P&L', value: (netPnl >= 0 ? '+' : '') + `₹${Math.abs(netPnl).toFixed(2)}`, sub: 'after brokerage', cx: netPnl >= 0 ? 'text-profit' : 'text-loss' },
+          ].map((c) => (
+            <div key={c.label} className="rounded-lg border border-border bg-card p-3">
+              <div className="text-xs text-muted-foreground">{c.label}</div>
+              <div className={cn('font-mono font-bold text-lg mt-0.5', c.cx)}>{c.value}</div>
+              <div className="text-[11px] text-muted-foreground">{c.sub}</div>
+            </div>
+          ))}
         </div>
       )}
 

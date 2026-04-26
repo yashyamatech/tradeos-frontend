@@ -2,15 +2,15 @@
 import { useState } from 'react';
 import { X, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useTradeStore, tradeRFactor, Trade } from '@/store/tradeStore';
+import { useTradeStore, tradeRFactor, tradeNetPnl, BROKERAGE_PER_LEG, Trade } from '@/store/tradeStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
-function fmtPnl(v: number) {
-  const sign = v >= 0 ? '+' : '-';
-  return `${sign}₹${Math.abs(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function fmt(v: number, sign = true) {
+  const s = sign ? (v >= 0 ? '+' : '-') : '';
+  return `${s}₹${Math.abs(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function CloseRow({ trade, onCancel }: { trade: Trade; onCancel: () => void }) {
@@ -48,23 +48,27 @@ export function TradeTable({ trades, showClose = true }: { trades: Trade[]; show
             <TableHead className="text-center">Dir</TableHead>
             <TableHead className="text-right">Qty</TableHead>
             <TableHead className="text-right">Entry</TableHead>
-            <TableHead className="text-right">SL / Target</TableHead>
+            <TableHead className="text-right">SL / Target</TableHead>
             <TableHead className="text-right">Exit</TableHead>
-            <TableHead className="text-right">P&amp;L</TableHead>
+            <TableHead className="text-right">Gross P&amp;L</TableHead>
+            <TableHead className="text-right">Brok</TableHead>
+            <TableHead className="text-right">Net P&amp;L</TableHead>
             <TableHead className="text-center">R</TableHead>
             <TableHead className="text-right pr-4"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {trades.map((trade) => {
-            const r     = tradeRFactor(trade);
-            const pnl   = trade.pnl ?? 0;
-            const pnlCx = pnl >= 0 ? 'text-profit' : 'text-loss';
+            const r      = tradeRFactor(trade);
+            const gross  = trade.pnl ?? 0;
+            const brok   = trade.status === 'closed' ? BROKERAGE_PER_LEG * 2 : BROKERAGE_PER_LEG;
+            const net    = tradeNetPnl(trade);
+            const closed = trade.status === 'closed';
             return (
               <TableRow key={trade.id}>
                 <TableCell className="pl-4">
                   <div className="font-mono font-semibold">{trade.symbol}</div>
-                  {trade.notes && <div className="text-[10px] text-muted-foreground truncate max-w-[140px]">{trade.notes}</div>}
+                  {trade.notes && <div className="text-[10px] text-muted-foreground truncate max-w-[120px]">{trade.notes}</div>}
                 </TableCell>
                 <TableCell className="text-center">
                   <Badge variant={trade.direction === 'BUY' ? 'default' : 'destructive'} className="text-[10px] py-0 h-4">
@@ -84,8 +88,17 @@ export function TradeTable({ trades, showClose = true }: { trades: Trade[]; show
                 <TableCell className="text-right font-mono text-sm">
                   {trade.exitPrice ? `₹${trade.exitPrice.toFixed(2)}` : <span className="text-muted-foreground">—</span>}
                 </TableCell>
-                <TableCell className={cn('text-right font-mono text-sm font-semibold', trade.status === 'open' ? 'text-muted-foreground' : pnlCx)}>
-                  {trade.status === 'closed' ? fmtPnl(pnl) : '—'}
+                {/* Gross P&L */}
+                <TableCell className={cn('text-right font-mono text-sm', !closed && 'text-muted-foreground')}>
+                  {closed ? fmt(gross) : '—'}
+                </TableCell>
+                {/* Brokerage */}
+                <TableCell className="text-right font-mono text-xs text-loss">
+                  −₹{brok}
+                </TableCell>
+                {/* Net P&L */}
+                <TableCell className={cn('text-right font-mono text-sm font-semibold', !closed ? 'text-muted-foreground' : net >= 0 ? 'text-profit' : 'text-loss')}>
+                  {closed ? fmt(net) : '—'}
                 </TableCell>
                 <TableCell className="text-center">
                   {r !== null
