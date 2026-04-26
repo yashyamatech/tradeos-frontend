@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { NoteCell } from '@/components/trades/NoteCell';
 
 type Preset = 'today' | 'week' | 'month' | 'custom';
 
@@ -128,7 +129,7 @@ export function PnlReport() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">To</span>
-              <Input type="date" value={customTo}   onChange={(e) => setCustomTo(e.target.value)}   className="w-36 h-8 text-sm" />
+              <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="w-36 h-8 text-sm" />
             </div>
           </div>
         )}
@@ -176,7 +177,7 @@ export function PnlReport() {
                       <TableCell className="pl-4 text-xs text-muted-foreground">{date}</TableCell>
                       <TableCell>
                         <div className="font-mono font-semibold text-sm">{trade.symbol}</div>
-                        {trade.notes && <div className="text-[10px] text-muted-foreground truncate max-w-[120px]">{trade.notes}</div>}
+                        {trade.notes && <NoteCell note={trade.notes} />}
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge variant={trade.direction === 'BUY' ? 'default' : 'destructive'} className="text-[10px] py-0 h-4">
