@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, RefreshCw, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useTradeStore, isTradeToday, tradeNetPnl, BROKERAGE_PER_LEG } from '@/store/tradeStore';
+import { useTradeStore, isTradeToday, tradeNetPnl, BROKERAGE_PER_TRADE } from '@/store/tradeStore';
 import { TradeTable } from '@/components/trades/TradeTable';
 import { TradeForm } from '@/components/trades/TradeForm';
 import { Button } from '@/components/ui/button';
@@ -13,19 +13,17 @@ export default function TradesPage() {
   const loading     = useTradeStore((s) => s.loading);
   const error       = useTradeStore((s) => s.error);
   const fetchTrades = useTradeStore((s) => s.fetchTrades);
-
   const [formOpen, setFormOpen] = useState(false);
 
   useEffect(() => { fetchTrades(); }, [fetchTrades]);
 
-  // Only show today's trades in the journal
   const todayTrades  = trades.filter(isTradeToday);
   const openTrades   = todayTrades.filter((t) => t.status === 'open');
   const closedTrades = todayTrades.filter((t) => t.status === 'closed');
 
-  const grossPnl    = closedTrades.reduce((s, t) => s + (t.pnl ?? 0), 0);
-  const brokerage   = todayTrades.reduce((s, t) => s + (t.status === 'closed' ? BROKERAGE_PER_LEG * 2 : BROKERAGE_PER_LEG), 0);
-  const netPnl      = closedTrades.reduce((s, t) => s + tradeNetPnl(t), 0);
+  const grossPnl  = closedTrades.reduce((s, t) => s + (t.pnl ?? 0), 0);
+  const brokerage = todayTrades.length * BROKERAGE_PER_TRADE;
+  const netPnl    = closedTrades.reduce((s, t) => s + tradeNetPnl(t), 0);
 
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
 
@@ -57,14 +55,13 @@ export default function TradesPage() {
 
       {loading && <div className="text-center py-8 text-sm text-muted-foreground">Loading…</div>}
 
-      {/* Today’s P&L summary — shown when there are any trades today */}
       {!loading && todayTrades.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Trades today', value: `${todayTrades.length}`, sub: `${openTrades.length} open / ${closedTrades.length} closed`, cx: '' },
-            { label: 'Brokerage', value: `−₹${brokerage}`, sub: '₹100 per leg', cx: 'text-loss' },
-            { label: 'Gross P&L', value: (grossPnl >= 0 ? '+' : '') + `₹${Math.abs(grossPnl).toFixed(2)}`, sub: 'before brokerage', cx: grossPnl >= 0 ? 'text-profit' : 'text-loss' },
-            { label: 'Net P&L', value: (netPnl >= 0 ? '+' : '') + `₹${Math.abs(netPnl).toFixed(2)}`, sub: 'after brokerage', cx: netPnl >= 0 ? 'text-profit' : 'text-loss' },
+            { label: 'Trades today',  value: `${todayTrades.length}`,  sub: `${openTrades.length} open / ${closedTrades.length} closed`, cx: '' },
+            { label: 'Brokerage',     value: `−₹${brokerage}`,           sub: '₹100 per trade', cx: 'text-loss' },
+            { label: 'Gross P&L',     value: (grossPnl >= 0 ? '+' : '') + `₹${Math.abs(grossPnl).toFixed(2)}`, sub: 'before brokerage', cx: grossPnl >= 0 ? 'text-profit' : 'text-loss' },
+            { label: 'Net P&L',       value: (netPnl  >= 0 ? '+' : '') + `₹${Math.abs(netPnl).toFixed(2)}`,  sub: 'after brokerage',  cx: netPnl  >= 0 ? 'text-profit' : 'text-loss' },
           ].map((c) => (
             <div key={c.label} className="rounded-lg border border-border bg-card p-3">
               <div className="text-xs text-muted-foreground">{c.label}</div>
@@ -81,7 +78,7 @@ export default function TradesPage() {
             <TabsTrigger value="open">Open ({openTrades.length})</TabsTrigger>
             <TabsTrigger value="closed">Closed ({closedTrades.length})</TabsTrigger>
           </TabsList>
-          <TabsContent value="open" className="mt-3"><TradeTable trades={openTrades} showClose /></TabsContent>
+          <TabsContent value="open"  className="mt-3"><TradeTable trades={openTrades}   showClose /></TabsContent>
           <TabsContent value="closed" className="mt-3"><TradeTable trades={closedTrades} showClose={false} /></TabsContent>
         </Tabs>
       )}
