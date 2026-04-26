@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, Grid3x3, BookOpen, FileText,
+  LayoutDashboard, Grid3x3, FileText,
   ChevronLeft, ChevronRight, LogOut, Power, PowerOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -12,10 +12,9 @@ import { useMarketStore } from '@/store/marketStore';
 import { Button } from '@/components/ui/button';
 
 const NAV = [
-  { href: '/dashboard',         label: 'Portfolio',    icon: LayoutDashboard },
-  { href: '/dashboard/heatmap', label: 'NSE Heatmap',  icon: Grid3x3 },
+  { href: '/dashboard',         label: 'Portfolio',     icon: LayoutDashboard },
+  { href: '/dashboard/heatmap', label: 'NSE Heatmap',   icon: Grid3x3 },
   { href: '/dashboard/trades',  label: 'Trade Journal', icon: FileText },
-  { href: '/dashboard/journal', label: 'Journal',       icon: BookOpen, soon: true },
 ];
 
 export function Sidebar() {
@@ -54,19 +53,13 @@ export function Sidebar() {
         {NAV.map((item) => {
           const active = pathname === item.href;
           return (
-            <Link key={item.href} href={item.soon ? '#' : item.href}
+            <Link key={item.href} href={item.href}
               className={cn(
                 'flex items-center gap-3 px-2 py-2 rounded-md text-sm transition-colors',
-                active ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                item.soon && 'opacity-40 cursor-not-allowed pointer-events-none'
+                active ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
               )}>
               <item.icon className="h-4 w-4 shrink-0" />
-              {!sidebarCollapsed && (
-                <span className="flex-1 truncate">
-                  {item.label}
-                  {item.soon && <span className="ml-1.5 text-[10px] uppercase tracking-wide opacity-60">soon</span>}
-                </span>
-              )}
+              {!sidebarCollapsed && <span className="flex-1 truncate">{item.label}</span>}
             </Link>
           );
         })}
