@@ -4,7 +4,7 @@ import { apiFetch } from '@/lib/api';
 export type TradeDirection = 'BUY' | 'SELL';
 export type TradeStatus   = 'open' | 'closed';
 
-export const BROKERAGE_PER_TRADE = 100; // ₹100 flat per trade (not per leg)
+export const BROKERAGE_PER_TRADE = 100;
 
 export interface Trade {
   id:         string;
@@ -18,6 +18,7 @@ export interface Trade {
   pnl?:       number;
   status:     TradeStatus;
   notes?:     string;
+  isPaper:    boolean;
   createdAt:  string;
   closedAt?:  string;
 }
@@ -36,45 +37,30 @@ function fromApi(t: any): Trade {
     pnl:        t.pnl        ?? undefined,
     status:     (t.status   ?? 'open') as TradeStatus,
     notes:      t.notes      ?? undefined,
+    isPaper:    t.is_paper   ?? true,
     createdAt:  t.created_at ?? '',
     closedAt:   t.closed_at  ?? undefined,
   };
 }
 
 async function apiError(res: Response, fallback: string): Promise<string> {
-  try {
-    const body = await res.json();
-    return body.detail ?? fallback;
-  } catch {
-    return fallback;
-  }
+  try { const b = await res.json(); return b.detail ?? fallback; }
+  catch { return fallback; }
 }
 
-/** ₹100 flat per trade */
-export function tradeBrokerage(_trade: Trade): number {
-  return BROKERAGE_PER_TRADE;
+export function tradeBrokerage(_t: Trade): number { return BROKERAGE_PER_TRADE; }
+export function tradeNetPnl(t: Trade): number {
+  if (t.status !== 'closed') return 0;
+  return (t.pnl ?? 0) - BROKERAGE_PER_TRADE;
 }
-
-/** Gross P&L minus ₹100 brokerage. 0 for open trades. */
-export function tradeNetPnl(trade: Trade): number {
-  if (trade.status !== 'closed') return 0;
-  return (trade.pnl ?? 0) - BROKERAGE_PER_TRADE;
-}
-
-export function tradeRFactor(trade: Trade): number | null {
-  const risk = Math.abs(trade.entryPrice - trade.stopLoss);
+export function tradeRFactor(t: Trade): number | null {
+  const risk = Math.abs(t.entryPrice - t.stopLoss);
   if (risk < 0.001) return null;
-  return parseFloat((Math.abs(trade.target - trade.entryPrice) / risk).toFixed(2));
+  return parseFloat((Math.abs(t.target - t.entryPrice) / risk).toFixed(2));
 }
-
-export function isTradeToday(trade: Trade): boolean {
-  const d   = new Date(trade.createdAt);
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth()    === now.getMonth()    &&
-    d.getDate()     === now.getDate()
-  );
+export function isTradeToday(t: Trade): boolean {
+  const d = new Date(t.createdAt), now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
 }
 
 interface TradeState {
@@ -88,9 +74,7 @@ interface TradeState {
 }
 
 export const useTradeStore = create<TradeState>((set) => ({
-  trades:  [],
-  loading: false,
-  error:   null,
+  trades: [], loading: false, error: null,
 
   fetchTrades: async () => {
     set({ loading: true, error: null });
@@ -98,9 +82,7 @@ export const useTradeStore = create<TradeState>((set) => ({
       const res = await apiFetch('/api/trades/');
       if (!res.ok) throw new Error(await apiError(res, `HTTP ${res.status}`));
       set({ trades: (await res.json()).map(fromApi), loading: false });
-    } catch (e) {
-      set({ error: e instanceof Error ? e.message : 'Failed to load trades', loading: false });
-    }
+    } catch (e) { set({ error: e instanceof Error ? e.message : 'Failed to load trades', loading: false }); }
   },
 
   createTrade: async (t) => {
@@ -109,21 +91,14 @@ export const useTradeStore = create<TradeState>((set) => ({
       const res = await apiFetch('/api/trades/', {
         method: 'POST',
         body: JSON.stringify({
-          symbol:      t.symbol,
-          direction:   t.direction,
-          quantity:    t.quantity,
-          entry_price: t.entryPrice,
-          stop_loss:   t.stopLoss,
-          target:      t.target,
-          notes:       t.notes ?? null,
+          symbol: t.symbol, direction: t.direction, quantity: t.quantity,
+          entry_price: t.entryPrice, stop_loss: t.stopLoss, target: t.target,
+          notes: t.notes ?? null, is_paper: t.isPaper,
         }),
       });
       if (!res.ok) throw new Error(await apiError(res, `HTTP ${res.status}`));
-      const created = fromApi(await res.json());
-      set((s) => ({ trades: [created, ...s.trades] }));
-    } catch (e) {
-      set({ error: e instanceof Error ? e.message : 'Failed to create trade' });
-    }
+      set((s) => ({ trades: [fromApi(await res.json()), ...s.trades] }));
+    } catch (e) { set({ error: e instanceof Error ? e.message : 'Failed to create trade' }); }
   },
 
   closeTrade: async (id, exitPrice) => {
@@ -133,9 +108,7 @@ export const useTradeStore = create<TradeState>((set) => ({
       if (!res.ok) throw new Error(await apiError(res, `HTTP ${res.status}`));
       const updated = fromApi(await res.json());
       set((s) => ({ trades: s.trades.map((t) => (t.id === id ? updated : t)) }));
-    } catch (e) {
-      set({ error: e instanceof Error ? e.message : 'Failed to close trade' });
-    }
+    } catch (e) { set({ error: e instanceof Error ? e.message : 'Failed to close trade' }); }
   },
 
   deleteTrade: async (id) => {
@@ -144,8 +117,6 @@ export const useTradeStore = create<TradeState>((set) => ({
       const res = await apiFetch(`/api/trades/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(await apiError(res, `HTTP ${res.status}`));
       set((s) => ({ trades: s.trades.filter((t) => t.id !== id) }));
-    } catch (e) {
-      set({ error: e instanceof Error ? e.message : 'Failed to delete trade' });
-    }
+    } catch (e) { set({ error: e instanceof Error ? e.message : 'Failed to delete trade' }); }
   },
 }));
