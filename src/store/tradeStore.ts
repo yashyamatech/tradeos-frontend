@@ -97,7 +97,8 @@ export const useTradeStore = create<TradeState>((set) => ({
         }),
       });
       if (!res.ok) throw new Error(await apiError(res, `HTTP ${res.status}`));
-      set((s) => ({ trades: [fromApi(await res.json()), ...s.trades] }));
+      const created = fromApi(await res.json());
+      set((s) => ({ trades: [created, ...s.trades] }));
     } catch (e) { set({ error: e instanceof Error ? e.message : 'Failed to create trade' }); }
   },
 
