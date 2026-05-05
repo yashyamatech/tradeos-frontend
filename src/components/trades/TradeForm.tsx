@@ -16,11 +16,10 @@ function RPreview({ entry, sl, target }: { entry: string; sl: string; target: st
   if (risk < 0.001) return null;
   const r = parseFloat((Math.abs(t - e) / risk).toFixed(2));
   const color = r >= 2 ? 'text-profit' : r >= 1 ? 'text-yellow-400' : 'text-loss';
-  const label = r >= 2 ? 'Good setup' : r >= 1 ? 'Marginal' : 'Poor R';
   return (
     <div className="flex items-center gap-2">
       <span className={cn('font-mono font-bold text-sm', color)}>{r}R</span>
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-xs text-muted-foreground">{r >= 2 ? 'Good setup' : r >= 1 ? 'Marginal' : 'Poor R'}</span>
     </div>
   );
 }
@@ -37,6 +36,7 @@ export function TradeForm({ open, onClose }: Props) {
   const [sl,        setSl]        = useState('');
   const [target,    setTarget]    = useState('');
   const [notes,     setNotes]     = useState('');
+  const [isPaper,   setIsPaper]   = useState(true);
   const [submitting, setSub]      = useState(false);
   const [err,        setErr]      = useState('');
 
@@ -51,6 +51,8 @@ export function TradeForm({ open, onClose }: Props) {
       stopLoss:   Number(sl)     || 0,
       target:     Number(target) || 0,
       notes:      notes || undefined,
+      isPaper,
+      exitPrice:  undefined,
     });
     setSub(false);
     handleClose();
@@ -58,7 +60,8 @@ export function TradeForm({ open, onClose }: Props) {
 
   function handleClose() {
     setSymbol(''); setDirection('BUY'); setQty('1');
-    setEntry(''); setSl(''); setTarget(''); setNotes(''); setErr('');
+    setEntry(''); setSl(''); setTarget(''); setNotes('');
+    setIsPaper(true); setErr('');
     onClose();
   }
 
@@ -67,6 +70,34 @@ export function TradeForm({ open, onClose }: Props) {
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>New Trade Entry</DialogTitle></DialogHeader>
         <div className="space-y-4 p-6 pt-2">
+
+          {/* Paper / Real toggle */}
+          <div className="flex items-center gap-2 p-1 rounded-lg border border-border bg-muted/30">
+            <button
+              type="button"
+              onClick={() => setIsPaper(true)}
+              className={cn(
+                'flex-1 py-1.5 rounded-md text-sm font-medium transition-all',
+                isPaper
+                  ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/40'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              📝 Paper Trade
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsPaper(false)}
+              className={cn(
+                'flex-1 py-1.5 rounded-md text-sm font-medium transition-all',
+                !isPaper
+                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              💰 Real Money
+            </button>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

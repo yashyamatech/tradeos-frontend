@@ -10,8 +10,20 @@ import { Badge } from '@/components/ui/badge';
 import { NoteCell } from '@/components/trades/NoteCell';
 
 function fmt(v: number) {
-  const s = v >= 0 ? '+' : '-';
-  return `${s}₹${Math.abs(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${v >= 0 ? '+' : '-'}₹${Math.abs(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function TradeTypeBadge({ isPaper }: { isPaper: boolean }) {
+  return (
+    <span className={cn(
+      'inline-block text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-sm mt-0.5',
+      isPaper
+        ? 'bg-yellow-500/15 text-yellow-400'
+        : 'bg-blue-500/15 text-blue-400'
+    )}>
+      {isPaper ? 'Paper' : 'Real'}
+    </span>
+  );
 }
 
 function CloseRow({ trade, onCancel }: { trade: Trade; onCancel: () => void }) {
@@ -68,6 +80,7 @@ export function TradeTable({ trades, showClose = true }: { trades: Trade[]; show
               <TableRow key={trade.id}>
                 <TableCell className="pl-4">
                   <div className="font-mono font-semibold">{trade.symbol}</div>
+                  <TradeTypeBadge isPaper={trade.isPaper} />
                   {trade.notes && <NoteCell note={trade.notes} />}
                 </TableCell>
                 <TableCell className="text-center">
