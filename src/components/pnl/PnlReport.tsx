@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { NoteCell } from '@/components/trades/NoteCell';
 
-type Preset = 'today' | 'week' | 'month' | 'custom';
+type Preset    = 'today' | 'week' | 'month' | 'custom';
+type TradeType = 'all' | 'paper' | 'real';
 
 function localDateStr(d: Date) { return d.toLocaleDateString('en-CA'); }
 
@@ -22,6 +23,11 @@ function endOfDay(d: Date): Date     { return new Date(d.getFullYear(), d.getMon
 
 function filterByRange(trades: Trade[], from: Date, to: Date) {
   return trades.filter((t) => { const d = new Date(t.createdAt); return d >= from && d < to; });
+}
+function filterByType(trades: Trade[], type: TradeType) {
+  if (type === 'paper') return trades.filter((t) => t.isPaper);
+  if (type === 'real')  return trades.filter((t) => !t.isPaper);
+  return trades;
 }
 
 function fmt(v: number) {
@@ -65,6 +71,12 @@ const PRESETS: { key: Preset; label: string }[] = [
   { key: 'custom', label: 'Custom' },
 ];
 
+const TYPE_FILTERS: { key: TradeType; label: string }[] = [
+  { key: 'all',   label: 'All Trades' },
+  { key: 'paper', label: '📝 Paper' },
+  { key: 'real',  label: '💰 Real' },
+];
+
 export function PnlReport() {
   const trades      = useTradeStore((s) => s.trades);
   const loading     = useTradeStore((s) => s.loading);
@@ -72,6 +84,7 @@ export function PnlReport() {
   useEffect(() => { fetchTrades(); }, [fetchTrades]);
 
   const [preset,     setPreset]     = useState<Preset>('week');
+  const [tradeType,  setTradeType]  = useState<TradeType>('all');
   const [customFrom, setCustomFrom] = useState(localDateStr(new Date()));
   const [customTo,   setCustomTo]   = useState(localDateStr(new Date()));
 
@@ -81,16 +94,23 @@ export function PnlReport() {
   const weekTrades  = useMemo(() => filterByRange(trades, startOfWeek(today), endOfDay(today)), [trades]);
   const monthTrades = useMemo(() => filterByRange(trades, startOfMonth(today), endOfDay(today)), [trades]);
 
+  const weekFiltered  = useMemo(() => filterByType(weekTrades, tradeType),  [weekTrades,  tradeType]);
+  const monthFiltered = useMemo(() => filterByType(monthTrades, tradeType), [monthTrades, tradeType]);
+
   const filteredTrades = useMemo(() => {
-    if (preset === 'today') return filterByRange(trades, today, endOfDay(today));
-    if (preset === 'week')  return weekTrades;
-    if (preset === 'month') return monthTrades;
-    return filterByRange(trades, new Date(customFrom), endOfDay(new Date(customTo)));
-  }, [trades, preset, customFrom, customTo, weekTrades, monthTrades]);
+    let base: Trade[];
+    if (preset === 'today') base = filterByRange(trades, today, endOfDay(today));
+    else if (preset === 'week')  base = weekTrades;
+    else if (preset === 'month') base = monthTrades;
+    else base = filterByRange(trades, new Date(customFrom), endOfDay(new Date(customTo)));
+    return filterByType(base, tradeType);
+  }, [trades, preset, customFrom, customTo, weekTrades, monthTrades, tradeType]);
 
   const fBrok  = filteredTrades.length * BROKERAGE_PER_TRADE;
   const fGross = filteredTrades.filter((t) => t.status === 'closed').reduce((s, t) => s + (t.pnl ?? 0), 0);
   const fNet   = filteredTrades.filter((t) => t.status === 'closed').reduce((s, t) => s + tradeNetPnl(t), 0);
+
+  const typeLabel = tradeType === 'paper' ? ' · Paper only' : tradeType === 'real' ? ' · Real only' : '';
 
   return (
     <div className="p-6 space-y-6">
@@ -104,9 +124,34 @@ export function PnlReport() {
         </Button>
       </div>
 
+      {/* Trade type filter */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground font-medium">View:</span>
+        <div className="flex items-center gap-1 p-0.5 rounded-lg border border-border bg-muted/30">
+          {TYPE_FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setTradeType(f.key)}
+              className={cn(
+                'px-3 py-1 rounded-md text-sm font-medium transition-all',
+                tradeType === f.key
+                  ? f.key === 'paper'
+                    ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/40'
+                    : f.key === 'real'
+                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
+                      : 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <SummaryCard label="This Week"  trades={weekTrades} />
-        <SummaryCard label="This Month" trades={monthTrades} />
+        <SummaryCard label={`This Week${typeLabel}`}  trades={weekFiltered} />
+        <SummaryCard label={`This Month${typeLabel}`} trades={monthFiltered} />
       </div>
 
       <div className="space-y-3">
@@ -138,7 +183,7 @@ export function PnlReport() {
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">
-            {PRESETS.find((p) => p.key === preset)?.label} — {filteredTrades.length} trade{filteredTrades.length !== 1 ? 's' : ''}
+            {PRESETS.find((p) => p.key === preset)?.label}{typeLabel} — {filteredTrades.length} trade{filteredTrades.length !== 1 ? 's' : ''}
           </h2>
           {filteredTrades.length > 0 && (
             <div className="flex items-center gap-4 text-sm">
@@ -176,7 +221,17 @@ export function PnlReport() {
                     <TableRow key={trade.id}>
                       <TableCell className="pl-4 text-xs text-muted-foreground">{date}</TableCell>
                       <TableCell>
-                        <div className="font-mono font-semibold text-sm">{trade.symbol}</div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-semibold text-sm">{trade.symbol}</span>
+                          <span className={cn(
+                            'text-[9px] font-semibold px-1 py-0.5 rounded uppercase tracking-wide',
+                            trade.isPaper
+                              ? 'bg-yellow-500/15 text-yellow-400'
+                              : 'bg-blue-500/15 text-blue-400'
+                          )}>
+                            {trade.isPaper ? 'Paper' : 'Real'}
+                          </span>
+                        </div>
                         {trade.notes && <NoteCell note={trade.notes} />}
                       </TableCell>
                       <TableCell className="text-center">
