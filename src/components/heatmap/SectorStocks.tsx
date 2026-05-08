@@ -1,6 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -28,20 +28,26 @@ function fmtVol(v: number | null | undefined) {
 }
 
 export function SectorStocks({ indexName, heatmapType = 'sectoral' }: { indexName: string; heatmapType?: HeatmapType }) {
-  const [stocks,  setStocks]  = useState<Stock[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState('');
+  const [stocks,     setStocks]     = useState<Stock[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error,      setError]      = useState('');
+  const [lastFetched, setLastFetched] = useState<Date | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'pctChange', dir: 'desc' });
 
-  useEffect(() => {
+  const load = useCallback((isRefresh = false) => {
     if (!indexName) return;
-    setLoading(true); setError('');
+    if (isRefresh) setRefreshing(true);
+    else           setLoading(true);
+    setError('');
     apiFetch(`/api/nse/sector/${encodeURIComponent(indexName)}?type=${heatmapType}`)
       .then((r) => r.ok ? r.json() : Promise.reject(r.status))
-      .then((d) => setStocks(d.stocks ?? []))
+      .then((d) => { setStocks(d.stocks ?? []); setLastFetched(new Date()); })
       .catch(() => setError('Failed to load stocks'))
-      .finally(() => setLoading(false));
+      .finally(() => { setLoading(false); setRefreshing(false); });
   }, [indexName, heatmapType]);
+
+  useEffect(() => { load(); }, [load]);
 
   function toggleSort(key: SortKey) {
     setSort((s) => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'desc' });
@@ -59,14 +65,32 @@ export function SectorStocks({ indexName, heatmapType = 'sectoral' }: { indexNam
   );
 
   if (loading) return <div className="flex items-center gap-2 justify-center py-20 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /> Loading...</div>;
-  if (error)   return <div className="p-6 text-center"><p className="text-destructive text-sm">{error}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => setError('')}>Retry</Button></div>;
+  if (error)   return (
+    <div className="p-6 text-center">
+      <p className="text-destructive text-sm">{error}</p>
+      <Button variant="outline" size="sm" className="mt-3" onClick={() => load(true)}>Retry</Button>
+    </div>
+  );
   if (!stocks.length) return <p className="text-muted-foreground text-sm p-6">No data</p>;
 
   return (
     <div>
-      <p className="text-xs text-muted-foreground px-5 py-2 border-b border-border">
-        {stocks.length} stocks &bull; click column header to sort
-      </p>
+      <div className="flex items-center justify-between px-5 py-2 border-b border-border">
+        <p className="text-xs text-muted-foreground">
+          {stocks.length} stocks
+          {lastFetched && <> &bull; updated {lastFetched.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</>}
+          <> &bull; click column to sort</>
+        </p>
+        <button
+          onClick={() => load(true)}
+          disabled={refreshing}
+          title="Refresh stock data"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={cn('h-3 w-3', refreshing && 'animate-spin')} />
+          {refreshing ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </div>
       <Table>
         <TableHeader>
           <TableRow>
