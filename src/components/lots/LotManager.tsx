@@ -6,7 +6,7 @@ import { useLotStore, StockLot } from '@/store/lotStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface FormState { symbol: string; lotSize: string; notes: string; }
@@ -25,7 +25,7 @@ function LotDialog({
   const [form, setForm] = useState<FormState>(initial);
   useEffect(() => { setForm(initial); }, [initial, open]);
 
-  const set = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const setField = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   function submit() {
@@ -37,55 +37,101 @@ function LotDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? 'Edit Lot Size' : 'Add F&O Lot Size'}</DialogTitle>
+      <DialogContent className="max-w-md">
+        <DialogHeader className="px-6 pt-6 pb-0">
+          <DialogTitle className="text-lg">
+            {isEdit ? 'Edit Lot Size' : 'Add F&O Lot Size'}
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground mt-1">
+            {isEdit
+              ? `Updating lot size for ${initial.symbol}`
+              : 'Enter the symbol and its F&O lot size for quick reference while ordering.'}
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
-          <div className="space-y-1.5">
-            <Label>Symbol</Label>
+
+        <div className="px-6 pb-6 pt-5 space-y-5">
+
+          {/* Symbol */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Symbol</Label>
             <Input
               placeholder="e.g. NIFTY, BANKNIFTY, RELIANCE"
               value={form.symbol}
-              onChange={set('symbol')}
+              onChange={setField('symbol')}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
-              className="uppercase"
+              className="uppercase h-10"
               disabled={isEdit}
             />
-            {isEdit && <p className="text-[11px] text-muted-foreground">Symbol cannot be changed — delete and re-add instead.</p>}
+            {isEdit && (
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Symbol cannot be changed — delete and re-add to rename.
+              </p>
+            )}
           </div>
-          <div className="space-y-1.5">
-            <Label>Lot Size</Label>
+
+          {/* Lot Size */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Lot Size</Label>
             <Input
               type="number"
               min="1"
               placeholder="e.g. 50"
               value={form.lotSize}
-              onChange={set('lotSize')}
+              onChange={setField('lotSize')}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
+              className="h-10 font-mono"
             />
+            <p className="text-[11px] text-muted-foreground">
+              Number of units in one lot for this instrument.
+            </p>
           </div>
-          <div className="space-y-1.5">
-            <Label>Notes <span className="text-muted-foreground text-xs">(optional)</span></Label>
+
+          {/* Notes */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Notes</Label>
+              <span className="text-[11px] text-muted-foreground">optional</span>
+            </div>
             <Input
-              placeholder="e.g. Index, expires last Thu"
+              placeholder="e.g. Index future, expires last Thu"
               value={form.notes}
-              onChange={set('notes')}
+              onChange={setField('notes')}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
+              className="h-10"
             />
           </div>
+
+          {/* Error */}
           {error && (
-            <div className="flex items-center gap-2 text-xs text-loss">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
+            <div className="flex items-start gap-2 rounded-md border border-loss/40 bg-loss/10 px-3 py-2.5 text-sm text-loss">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
-          <Button
-            onClick={submit}
-            disabled={saving || !form.symbol.trim() || !form.lotSize}
-            className="w-full"
-          >
-            {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</> : isEdit ? 'Save Changes' : 'Add'}
-          </Button>
+
+          {/* Divider */}
+          <div className="border-t border-border" />
+
+          {/* Actions */}
+          <div className="flex items-center gap-3 pt-1">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={onClose}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={submit}
+              disabled={saving || !form.symbol.trim() || !form.lotSize}
+            >
+              {saving
+                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</>
+                : isEdit ? 'Save Changes' : 'Add Lot Size'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -108,18 +154,9 @@ export function LotManager() {
     (l.notes ?? '').toLowerCase().includes(query.toLowerCase())
   );
 
-  function openAdd() {
-    setEditTarget(null);
-    setDialogOpen(true);
-  }
-  function openEdit(lot: StockLot) {
-    setEditTarget(lot);
-    setDialogOpen(true);
-  }
-  function closeDialog() {
-    setDialogOpen(false);
-    setEditTarget(null);
-  }
+  function openAdd() { setEditTarget(null); setDialogOpen(true); }
+  function openEdit(lot: StockLot) { setEditTarget(lot); setDialogOpen(true); }
+  function closeDialog() { setDialogOpen(false); setEditTarget(null); }
 
   async function handleSave(form: FormState) {
     setSaving(true);
