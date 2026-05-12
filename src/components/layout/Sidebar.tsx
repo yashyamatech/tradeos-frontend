@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, Grid3x3, FileText, BarChart2,
+  LayoutDashboard, Grid3x3, FileText, BarChart2, Layers,
   ChevronLeft, ChevronRight, LogOut, Power, PowerOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,7 @@ const NAV = [
   { href: '/dashboard/heatmap', label: 'NSE Heatmap',   icon: Grid3x3 },
   { href: '/dashboard/trades',  label: 'Trade Journal', icon: FileText },
   { href: '/dashboard/pnl',     label: 'P&L Report',   icon: BarChart2 },
+  { href: '/dashboard/lots',    label: 'F&O Lot Sizes', icon: Layers },
 ];
 
 export function Sidebar() {
