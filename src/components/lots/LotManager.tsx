@@ -6,7 +6,7 @@ import { useLotStore, StockLot } from '@/store/lotStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface FormState { symbol: string; lotSize: string; notes: string; }
@@ -42,11 +42,11 @@ function LotDialog({
           <DialogTitle className="text-lg">
             {isEdit ? 'Edit Lot Size' : 'Add F&O Lot Size'}
           </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             {isEdit
               ? `Updating lot size for ${initial.symbol}`
               : 'Enter the symbol and its F&O lot size for quick reference while ordering.'}
-          </DialogDescription>
+          </p>
         </DialogHeader>
 
         <div className="px-6 pb-6 pt-5 space-y-5">
@@ -114,12 +114,7 @@ function LotDialog({
 
           {/* Actions */}
           <div className="flex items-center gap-3 pt-1">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={onClose}
-              disabled={saving}
-            >
+            <Button variant="outline" className="flex-1" onClick={onClose} disabled={saving}>
               Cancel
             </Button>
             <Button
@@ -183,7 +178,6 @@ export function LotManager() {
 
   return (
     <div className="p-6 space-y-5">
-      {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold">F&amp;O Lot Sizes</h1>
@@ -201,14 +195,12 @@ export function LotManager() {
         </div>
       </div>
 
-      {/* Global error */}
       {error && (
         <div className="flex items-center gap-2 rounded-md border border-loss/40 bg-loss/10 px-3 py-2 text-sm text-loss">
           <AlertCircle className="h-4 w-4 shrink-0" />{error}
         </div>
       )}
 
-      {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -219,7 +211,6 @@ export function LotManager() {
         />
       </div>
 
-      {/* Table */}
       {loading && lots.length === 0 ? (
         <div className="flex items-center gap-2 justify-center py-24 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" /> Loading…
